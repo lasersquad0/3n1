@@ -90,12 +90,17 @@ public:
 		return ((m_arr[index2] >> offset) & 0x01) == 1ULL;
 	}
 
-	inline void setTrue(uint64_t bitTndex)
+	inline void setTrue(BigInt& bitIndex)
 	{
-		assert(bitTndex < m_bits);
+		setTrue(toULongLong(bitIndex));
+	}
 
-		uint64_t index2 = bitTndex >> WORD_2POWER; // index/BITS_IN_WORD;
-		uint64_t offset = bitTndex & WORD_MASK; // index % BITS_IN_WORD;
+	inline void setTrue(uint64_t bitIndex)
+	{
+		assert(bitIndex < m_bits);
+
+		uint64_t index2 = bitIndex >> WORD_2POWER; // index/BITS_IN_WORD;
+		uint64_t offset = bitIndex & WORD_MASK; // index % BITS_IN_WORD;
 
 		m_arr[index2] |= (1ull << offset); //TODO не сработает правильно если ранее туда записана 1 и мы сейчас хотим записать 0.
 		//arr[index2] = set_bit(arr[index2], offset, value);
