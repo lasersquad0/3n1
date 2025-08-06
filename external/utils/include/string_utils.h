@@ -23,12 +23,14 @@ typedef wchar_t char_t;
 typedef std::wstring string_t;
 typedef std::wstringstream stringstream_t;
 #define to_string_t std::to_wstring
+#define toStringSep toStringSepW
 #else
 #define U(quote) quote  
 typedef char char_t; 
 typedef std::string string_t;
 typedef std::stringstream stringstream_t;
 #define to_string_t std::to_string
+#define toStringSep toStringSepA
 #endif
 
 
