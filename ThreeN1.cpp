@@ -3,6 +3,203 @@
 #include "ThreeN1.h"
 
 
+// calc ONE number WITHOUT using cache
+// used for BigInt ONLY
+template<>
+void ThreeN1<BigInt>::Calc3p1(const BigInt& number, ThreeN1Data<BigInt>& calcResult)
+{
+    calcResult.maxvalue = number;
+    calcResult.steps = 0ull;
+    BigInt curr = number;
+    
+    if (curr < m_unused.BitsCount()) m_unused.setTrue(curr); //m_paths[curr] = true;
+
+    while (curr != 1ull)
+    {
+        if (curr.IsEven())
+        {
+            divide_by_2(curr);
+        }
+        else
+        {
+            curr = (3ull * curr + 1ull) / 2; //TODO why dont use divide_by_2() here? 
+
+            calcResult.steps++; // if curr is odd we do 2 operations at once and increase steps twice accordingly
+            if (calcResult.maxvalue < curr) calcResult.maxvalue = curr;
+        }
+
+        calcResult.steps++;
+
+        if (curr < m_unused.BitsCount()) m_unused.setTrue(curr); //m_paths[curr] = true;
+    }
+}
+
+// еще оптимизация - держать кеш в диапазоне up/2....up. где up верхняя граница кеша.
+// держать кеш ниже чем up/2 нету смысла туда никогда не зайдем.
+// например диапазон 1G...2G 
+template<>
+void ThreeN1<uint64_t>::CacheToFileVarLen(const uint64_t& start, const std::string& fileName)
+{
+    std::ofstream f;
+    f.open(fileName, std::ios::out | std::ios::binary);
+    if (f.fail())
+    {
+        //cout << "Cannot open file '" << fileTo << "' for writing, exiting." << endl;
+        throw std::invalid_argument("Error: cannot open file '" + fileName + "'\n");
+    }
+
+    const uint64_t BUF_LEN = 100'000'000; // записываем в файл блоками по 100М
+    uint8_t* buf = new uint8_t[BUF_LEN];
+
+    uint64_t offset = var_len_encode(buf, start);
+    f.write((const char*)buf, offset);  // saving start number, all subsequent numbers will be get by +1 to start
+
+    offset = var_len_encode(buf, m_valuesCache.Count());
+    f.write((const char*)buf, offset);  // saving expected number of items in a file
+
+    offset = 0;
+    for (uint i = 0; i < m_valuesCache.Count(); ++i)
+    {
+        CalcDataType val = m_valuesCache[i];
+        assert(val.steps < 65536);
+        offset += var_len_encode(buf + offset, (uint64_t)val.steps);
+        offset += var_len_encode(buf + offset, val.maxvalue);
+
+        if (offset > BUF_LEN - 8)
+        {
+            f.write((char*)buf, offset);
+            offset = 0;
+        }
+    }
+
+    f.write((char*)buf, offset);
+
+    delete[] buf;
+
+    f.flush();
+    f.close();
+}
+
+
+template<>
+void ThreeN1<uint64_t>::CacheFromFileVarLen(const std::string& fileName)
+{
+    std::ifstream f;
+    f.open(fileName, std::ios::out | std::ios::binary);
+    if (f.fail())
+    {
+        //cout << "Cannot open file '" << fileTo << "' for writing, exiting." << endl;
+        throw std::invalid_argument("Error: cannot open file '" + fileName + "'\n");
+    }
+
+    uint64_t start, cnt;
+    uint8_t buf[9];
+
+    size_t maxSize = VarLenReadBuf(f, buf);
+    size_t res = var_len_decode(buf, maxSize, &start);
+    assert(res > 0);
+
+    maxSize = VarLenReadBuf(f, buf);
+    res = var_len_decode(buf, maxSize, &cnt);
+    assert(res > 0);
+
+    m_valuesCache.SetCapacity((uint)(cnt));// +2ull)); // +2 just in case
+    CalcDataType val;
+    while (true)
+    {
+        maxSize = VarLenReadBuf(f, buf);
+        uint64_t tmp;
+        res = var_len_decode(buf, maxSize, &tmp);
+        assert(res > 0);
+        assert(tmp < 65536ull);
+        val.steps = (uint16_t)tmp;
+
+        maxSize = VarLenReadBuf(f, buf);
+        res = var_len_decode(buf, maxSize, &val.maxvalue);
+        assert(res > 0);
+
+        if (f.eof()) break;
+
+        m_valuesCache.AddValue(val);
+
+        cnt--;
+    }
+
+    assert(cnt == 0);
+
+    f.close();
+}
+
+template<>
+void ThreeN1<uint64_t>::CacheFromFileVarLen2(const std::string& fileName, int64_t itemsToRead)
+{
+    std::ifstream f;
+    f.open(fileName, std::ios::out | std::ios::binary);
+    if (f.fail())
+        throw std::invalid_argument("Error: cannot open file '" + fileName + "'\n");
+
+    const uint64_t BUF_LEN = 100'000'000; // read file by 100M blocks
+    uint8_t* buf = new uint8_t[BUF_LEN];
+
+    uint64_t cnt{};
+
+    size_t maxSize = VarLenReadBuf(f, buf);
+    size_t res = var_len_decode(buf, maxSize, &m_cacheStart);
+    assert(res > 0);
+
+    maxSize = VarLenReadBuf(f, buf);
+    res = var_len_decode(buf, maxSize, &cnt);
+    assert(res > 0);
+    // reading only itemsToRead items from cache file
+    if (itemsToRead != -1) cnt = std::min(cnt, (uint64_t)itemsToRead);
+    m_cacheFinish = m_cacheStart + cnt;
+
+    m_valuesCache.Clear();
+    m_valuesCache.SetCapacity((uint)(toULongLong(cnt)));// +2ull)); // +2 just in case
+    CalcDataType val;
+    size_t offset = 0;
+    size_t actualBufSize = BUF_LEN;
+
+    f.read((char*)buf, BUF_LEN);
+
+    while (true)
+    {
+        if ((offset > actualBufSize - 9) && !f.eof())
+        {
+            size_t remainde = actualBufSize - offset;
+            memcpy(buf, buf + offset, remainde); // move remainding bytes into beginning of the buffer
+            f.read((char*)(buf + remainde), BUF_LEN - remainde);
+            actualBufSize = f.gcount() + remainde; // real number of read bytes
+            offset = 0;
+        }
+
+        uint64_t tmp;
+        res = var_len_decode(buf + offset, 9, &tmp);
+        assert(res > 0);
+        assert(tmp < 65536ull);
+        val.steps = (uint16_t)tmp;
+        offset += res;
+
+        res = var_len_decode(buf + offset, 9, &val.maxvalue);
+        assert(res > 0);
+        offset += res;
+
+        m_valuesCache.AddValue(val);
+
+        cnt--;
+        if (cnt == 0ull) break;
+        if (f.eof() && (offset >= actualBufSize)) break;
+    }
+
+    delete[] buf;
+
+    assert(cnt == 0ull);
+
+    f.close();
+}
+
+
+
 
 //template<typename IntImpl>
 //std::mutex ThreeN1Task<IntImpl>::m_cacheLock;

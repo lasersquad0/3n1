@@ -3,7 +3,7 @@
 #include <locale>
 #include <string>
 #include "DynamicArrays.h"
-//#include "BigInt.h"
+#include "BigInt.h"
 #include "CommandLine.h"
 #include "DefaultParser.h"
 #include "HelpFormatter.h"
@@ -11,74 +11,9 @@
 #include "string_utils.h"
 
 
-/*#define X1(x) X2(x)+X2(x)
-#define X2(x) X3(x)+X3(x)
-#define X3(x) X4(x)+X4(x)
-#define X4(x) X5(x)+X5(x)
-#define X5(x) X6(x)+X6(x)
-#define X6(x) X7(x)+X7(x)
-#define X7(x) X8(x)+X8(x)
-#define X8(x) X9(x)+X9(x)
-#define X9(x) X10(x)+X10(x)
-#define X10(x) X11(x)+X11(x)
-#define X11(x) X12(x)+X12(x)
-#define X12(x) X13(x)+X13(x)
-#define X13(x) X14(x)+X14(x)
-#define X14(x) X15(x)+X15(x)
-#define X15(x) X16(x)+X16(x)
-#define X16(x) X17(x)+X17(x)
-#define X17(x) X18(x)+X18(x)
-#define X18(x) X19(x)+X19(x)
-#define X19(x) X20(x)+X20(x)
-#define X20(x) X21(x)+X21(x)
-#define X21(x) X22(x)+X22(x)
-#define X22(x) X23(x)+X23(x)
-#define X23(x) X24(x)+X24(x)
-#define X24(x) X25(x)+X25(x)
-#define X25(x) X26(x)+X26(x)
-#define X26(x) X27(x)+X27(x)
-#define X27(x) X28(x)+X28(x)
-#define X28(x) X29(x)+X29(x)
-#define X29(x) X30(x)+X30(x)
-#define X30(x) X31(x)+X31(x)
-#define X31(x) X32(x)+X32(x)
-#define X32(x) X33(x)+X33(x)
-#define X33(x) X34(x)+X34(x)
-#define X34(x) X35(x)+X35(x)
-#define X35(x) X36(x)+X36(x)
-#define X36(x) X37(x)+X37(x)
-#define X37(x) X38(x)+X38(x)
-#define X38(x) X39(x)+X39(x)
-#define X39(x) X40(x)+X40(x)
-#define X40(x) X41(x)+X41(x)
-#define X41(x) X42(x)+X42(x)
-#define X42(x) X43(x)+X43(x)
-#define X43(x) X44(x)+X44(x)
-#define X44(x) X45(x)+X45(x)
-#define X45(x) X46(x)+X46(x)
-#define X46(x) X47(x)+X47(x)
-#define X47(x) X48(x)+X48(x)
-#define X48(x) X49(x)+X49(x)
-#define X49(x) X50(x)+X50(x)
-#define X50(x) X51(x)+X51(x)
-#define X51(x) X52(x)+X52(x)
-#define X52(x) X53(x)+X53(x)
-#define X53(x) X54(x)+X54(x)
-#define X54(x) X55(x)+X55(x)
-#define X55(x) X56(x)+X56(x)
-#define X56(x) X57(x)+X57(x)
-#define X57(x) X58(x)+X58(x)
-#define X58(x) X59(x)+X59(x)
-#define X59(x) X60(x)+X60(x)
-#define X60(x) X61(x)+X61(x)
-#define X61(x) X62(x)+X62(x)
-#define X62(x) X63(x)+X63(x)
-#define X63(x) X64(x)+X64(x)
-#define X64(x) x+x*/
-
 static void PrintUsage(COptionsList& options)
 {
-	std::cout << CHelpFormatter::Format("ThreeN1", &options);
+	std::cout << CHelpFormatter::Format(_T("ThreeN1"), &options);
 }
 
 #define OPT_C _T("c")
@@ -108,11 +43,9 @@ static void DefineOptions(COptionsList& options)
 	options.AddOption(OPT_H, _T("help"), _T("Show help"), 0);
 }
 
-
-int main(int argc,char* argv[])
+int _tmain(int argc, TCHAR* argv[])
+//int main(int argc,char* argv[])
 {
-	//return X44(0);
-
 	CDefaultParser defaultParser;
 	CCommandLine cmd;
 	COptionsList options;
@@ -141,30 +74,34 @@ int main(int argc,char* argv[])
 	
 	try
 	{
+		//ThreeN1<uint64_t> calc1;
+		ThreeN1<BigInt> calc1;
+		
+		using IntImpl = decltype(calc1)::DataType;
+		
 		// default values
 		const uint64_t THREADS_DEF = 4;
 		const uint64_t UNUSED_DEF = 1'000'000'000;
-		uint64_t start{}, finish{};
+		
+		IntImpl start{}, finish{};
 
 		if (cmd.HasOption(OPT_R)) // we must have option -r in cmd
 		{
-			std::string sstart = RemoveApo(cmd.GetOptionValue(OPT_R, 0, "some v" )); // "3'000'000'000"));
-			std::string sfinish = RemoveApo(cmd.GetOptionValue(OPT_R, 1, "some v")); // "4'000'000'000"));
+			std::string sstart = RemoveApo(cmd.GetOptionValue(OPT_R, 0, _T("some v") )); // "3'000'000'000"));
+			std::string sfinish = RemoveApo(cmd.GetOptionValue(OPT_R, 1,_T("some v") )); // "4'000'000'000"));
 
 			start = ParseNumber(sstart); // parses values like 1G, 100T, 200M, 150K together with 1000000, 100, 1234567890, etc.
 			finish = ParseNumber(sfinish);
 
 			if (start > finish)
 			{
-				uint64_t tmp = start;
+				IntImpl tmp = start;
 				start = finish;
 				finish = tmp;
 			}
 		}
 
 		std::cout << "Range to calculate: " << start << " - " << finish << std::endl;
-
-		ThreeN1<uint64_t> calc1;
 
 		uint64_t unused = UNUSED_DEF;
 		if (cmd.HasOption(OPT_U)) // track unused ONLY when -u option is specified in cmd
@@ -178,12 +115,10 @@ int main(int argc,char* argv[])
 				// nothing to do, unused remains unchanged in case of exception
 			}
 
-			auto unusedRange = std::min(unused, finish);
+			auto unusedRange = std::min(unused, toULongLong(finish));
 			calc1.TrackUnused(unusedRange);
 			std::cout << "Track unused is ON. Range: 1.." << unusedRange << std::endl;
 		}
-
-		//ThreeN1<BigInt> calc1; //TODO BigInt specialisation will not compile at the moment, need to work on std::format(BigInt) to make it compile
 		
 		if (cmd.HasOption(OPT_T))
 		{
@@ -218,7 +153,12 @@ int main(int argc,char* argv[])
 			{
 				startFS = std::chrono::high_resolution_clock::now();
 				std::cout << "Loading cache data..." << std::endl;
-				calc1.CacheFromFileVarLen2("3-1G.binvar", finish);
+				
+				if constexpr (std::is_same<decltype(calc1)::DataType, BigInt>::value) // for BigInt only
+					calc1.CacheFromFileBin("3-1G.bin");
+				else
+					calc1.CacheFromFileVarLen2("3-1G.binvar", toULongLong(finish));
+
 				auto stop = std::chrono::high_resolution_clock::now();
 				std::cout << "Loaded cache count:" << calc1.m_valuesCache.Count() << std::endl;
 				std::cout << "Loading cache time:" << MillisecToStr(std::chrono::duration_cast<std::chrono::milliseconds>(stop - startFS).count()) << std::endl;
