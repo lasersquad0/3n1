@@ -1,5 +1,7 @@
 
 #include <sstream>
+#include <vector>
+
 #include "BigInt.h"
 
 bool Null(const BigInt& a)
@@ -419,13 +421,14 @@ BigInt Factorial(int n)
 std::istream& operator>>(std::istream& in, BigInt& a)
 {
     std::string s;
-    in >> s;
+    in >> s; // read symbols till end of line (or will eof)
     int n = (int)s.size();
+    a.digits.resize(n);
     for (int i = n - 1; i >= 0; i--)
     {
         if (!isdigit(s[i]))
             throw TBigIntException("BigInt reading from stream error: INVALID NUMBER");
-        a.digits[n - i - 1] = s[i];
+        a.digits[n - i - 1] = s[i] - '0';
     }
     return in;
 }
@@ -433,18 +436,11 @@ std::istream& operator>>(std::istream& in, BigInt& a)
 std::ostream& operator<<(std::ostream& out, const BigInt& a)
 {
     for (int i = (int)a.digits.size() - 1; i >= 0; i--)
-        out << (short)a.digits[i];
+        out << (std::string::value_type)(a.digits[i] + '0');
+        //out << (short)a.digits[i];
+    //out << std::endl; // end-of-bigint-reading sign
     return out;
 }
 
-unsigned long long toULongLong(BigInt a)
-{
-    std::stringstream strs;
-    strs << a;
-
-    unsigned long long res;
-    strs >> res;
-    return res;
-}
 
 
