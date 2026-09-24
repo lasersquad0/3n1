@@ -13,7 +13,7 @@
 #include <tchar.h>
 #include <string>
 #include <vector>
-//#include <stdexcept>
+#include <set>
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -33,8 +33,13 @@ typedef std::string cli_string;
 #define DASH  _T("-")
 #define DDASH _T("--")
 
+class COption;
+
 /** @brief Vector that contains strings. Commonly used type in many classes */
 typedef std::vector<cli_string> vector_string_t;
+
+/** @brief Set that contains options. */
+typedef std::set<COption*> set_option_pt;
 
 class COption
 {
@@ -56,6 +61,11 @@ public:
      */
     COption(const cli_string& shortName, const cli_string& longName, const cli_string& description, uint16_t numArgs, bool isRequired = false);
 
+    COption(const COption& other) 
+    {
+        Assign(other);
+    }
+
     /**
      * @brief Update option information.
      *
@@ -75,6 +85,16 @@ public:
     COption& Assign(const COption& opt);
 
     /**
+     * @brief Compare two options. Consider them equal when Short and Long names are the same in both options
+     *
+     * @param other Another option to compare.
+     */
+    bool operator==(COption& other)
+    {
+        return (m_ShortName == other.m_ShortName) && (m_LongName == other.m_LongName);
+    }
+
+    /**
      * @brief Store the option argument.
      * @param arg The option argument.
      */
@@ -90,7 +110,7 @@ public:
      * @brief Get the maximum number of option arguments.
      * @return The maximum number of arguments for the option.
      */
-    inline uint16_t GetNumArgs() { return m_NumArgs; }
+    inline uint16_t GetNumArgs() const { return m_NumArgs; }
     
     /**
      * @brief Set the maximum number of option arguments.
@@ -99,9 +119,7 @@ public:
     COption& NumArgs(uint16_t numArgs) 
     {
         m_NumArgs = numArgs;
-        if(m_NumRequiredArgs > m_NumArgs)
-           m_NumRequiredArgs = m_NumArgs;
-
+        if(m_NumRequiredArgs > m_NumArgs) m_NumRequiredArgs = m_NumArgs;
         return *this; 
     }
     
@@ -109,7 +127,7 @@ public:
      * @brief Get the number of required arguments for the option.
      * @return The number of required arguments.
      */
-    inline uint16_t GetNumRequiredArgs() { return m_NumRequiredArgs; }
+    inline uint16_t GetNumRequiredArgs() const { return m_NumRequiredArgs; }
 
     /**
      * @brief Set the number of required arguments for the option.
@@ -119,9 +137,8 @@ public:
     COption& RequiredArgs(uint16_t numRequiredArgs) 
     { 
         m_NumRequiredArgs = numRequiredArgs;
-        if (m_NumArgs < m_NumRequiredArgs) // m_NumRequiredArgs cannot be larger than m_NumArgs  
-            m_NumArgs = m_NumRequiredArgs;
-
+        // m_NumRequiredArgs cannot be larger than m_NumArgs  
+        if (m_NumArgs < m_NumRequiredArgs) m_NumArgs = m_NumRequiredArgs;
         return *this; 
     }
     
@@ -130,6 +147,7 @@ public:
      * @return A string with the option description.
      */
     inline const cli_string& GetDescription() { return m_Description; }
+
     COption& Descr(const cli_string& descr) { m_Description = descr; return *this; }
     
     /**
@@ -145,7 +163,31 @@ public:
      */
     inline const cli_string& GetLongName() { return m_LongName; }
     COption& LongName(const cli_string& longName) { m_LongName = longName; return *this; }
+
+    /**
+     * @brief Registers option opt as mutually exclusive with current one. 
+     * These both options cannot appear together in one command line.
+     * @return Reference to this option
+     */
+    COption& Excludes(COption* opt);
+
+    /** 
+     * @brief Function to support any number of options that will be registered as mutually exclusive with current one
+     * @return Reference to this option 
+     */
+    template <typename A, typename B, typename... ARG> 
+    COption& Excludes(const A& opt1, const B& opt2, const ARG&... args)
+    {
+        Excludes(opt1);
+        return Excludes(opt2, args...);
+    }
     
+    /** 
+     * @brief Returns list of mutually exclusive options for the current option 
+     * @return Reference to list of mutually exclusive options for the current option 
+     */
+    set_option_pt& GetExcludes() { return m_Excludes; }
+
     /**
      * @brief Get non empty option name either short name or long name (does not contain the dashes).
      * @return A string with the non empty name.
@@ -174,13 +216,13 @@ public:
    * @brief Check of the option needs more required arguments.
    * @return true if needs more arguments, false, otherwise.
    */
-    inline bool NeedsArgs() { return m_Args.size() < m_NumRequiredArgs; }
+    inline bool NeedsArgs() const { return m_Args.size() < m_NumRequiredArgs; }
 
     /**
      * @brief Check if the option is required or optional.
      * @return true if required, false otherwise.
      */
-    inline bool IsRequired() { return m_IsRequired; }
+    inline bool IsRequired() const { return m_IsRequired; }
 
     /**
     * @brief Make the option itself required or not.
@@ -192,7 +234,9 @@ public:
      * @brief Check of the option has arguments.
      * @return True if has arguments, false otherwise.
      */
-    inline bool HasArgs() { return m_NumArgs > 0 || m_NumRequiredArgs > 0; }
+    inline bool HasArgs() const { return m_NumArgs > 0 || m_NumRequiredArgs > 0; }
+
+    void Reset() { m_Args.clear(); }
 
 private:
 
@@ -216,6 +260,9 @@ private:
 
     /** @brief List where arguments are stored. */
     vector_string_t m_Args;
+
+    /** @brief List of Options mutually exclusive with the current one. */
+    set_option_pt m_Excludes;
 
     /* prevent copying and assignment */
     COption& operator=(const COption& other) = delete;

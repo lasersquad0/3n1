@@ -44,7 +44,8 @@ COption& COption::Assign(const COption& opt)
     m_IsRequired = opt.m_IsRequired;
     m_NumArgs = opt.m_NumArgs;
     m_NumRequiredArgs = opt.m_NumRequiredArgs;
-    
+    m_Excludes = opt.m_Excludes;
+
     return *this;
 }
 
@@ -62,13 +63,12 @@ const cli_string COption::GetNonEmptyName(bool addDash /* =false*/)
             return m_ShortName;
 }
 
-//void COption::Assign(const COption_basic& opt)
-//{
-//    m_ShortName.assign(opt.m_ShortName);
-//    m_LongName.assign(opt.m_LongName);
-//
-//    m_Description.assign(opt.m_Description);
-//    m_IsRequired = opt.m_IsRequired;
-//    m_NumArgs = opt.m_NumArgs;
-//    m_NumRequiredArgs = opt.m_NumRequiredArgs;
-//}
+COption& COption::Excludes(COption* opt)
+{
+    if (opt != this) // cannot add itself into excludes
+    {
+        m_Excludes.insert(opt);
+        opt->m_Excludes.insert(this); // if A excludes B it means that B also excludes A
+    }
+    return *this;
+}
