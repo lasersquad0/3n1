@@ -113,6 +113,11 @@ private:
     bool CheckMissingRequiredOptions();
 
     /**
+     * @brief Check for mutually exclusive options.
+     * @return true if there are mutually exclusive options, false otherwise.
+     */
+    bool CheckMutuallyExclusive();
+    /**
     * @brief Check for missing required options.
     * @return true if there are missing options, false otherwise.
     */
