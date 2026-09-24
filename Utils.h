@@ -4,13 +4,14 @@
 #include <locale>
 #include <fstream>
 #include <cassert>
-
 #include "BigInt.h"
+
+const uint32_t F_WIDTH = 27;
 
 struct MyGroupSeparator : std::numpunct<char>
 {
-	char do_thousands_sep() const override { return ' '; } // разделитель тысяч
-	std::string do_grouping() const override { return "\3"; } // группировка по 3
+	char do_thousands_sep() const override { return ' '; } // thousands separator
+	std::string do_grouping() const override { return "\3"; } // group by 3
 };
 
 uint64_t ParseNumber(std::string num, char& FactorSym, uint64_t& FactorInt);
@@ -50,7 +51,7 @@ private:
 		//	uint64_t mask = bit ? 0x01 : 0x00;
 		//	//mask <<= offset;
 
-		//	return word | (mask << offset); // не сработает правильно если ранее туда записана 1 и мы сейчас хотим заисать 0.
+		//	return word | (mask << offset); // don't work well if 1 is already there and we want to put 0 now.
 		//}
 
 public:
@@ -102,7 +103,7 @@ public:
 		uint64_t index2 = bitIndex >> WORD_2POWER; // index/BITS_IN_WORD;
 		uint64_t offset = bitIndex & WORD_MASK; // index % BITS_IN_WORD;
 
-		m_arr[index2] |= (1ull << offset); //TODO не сработает правильно если ранее туда записана 1 и мы сейчас хотим записать 0.
+		m_arr[index2] |= (1ull << offset); //TODO don't work well if 1 is already there and we want to put 0 now.
 		//arr[index2] = set_bit(arr[index2], offset, value);
 	}
 
