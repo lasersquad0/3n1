@@ -3,42 +3,11 @@
 #include "ThreeN1.h"
 
 
-// calc ONE number WITHOUT using cache
-// used for BigInt ONLY
-template<>
-void ThreeN1<BigInt>::Calc3p1(const BigInt& number, ThreeN1Data<BigInt>& calcResult)
-{
-    calcResult.maxvalue = number;
-    calcResult.steps = 0ull;
-    BigInt curr = number;
-    
-    if (curr < m_unused.BitsCount()) m_unused.setTrue(curr); //m_paths[curr] = true;
-
-    while (curr != 1ull)
-    {
-        if (curr.IsEven())
-        {
-            divide_by_2(curr);
-        }
-        else
-        {
-            curr = (3ull * curr + 1ull) / 2; //TODO why dont use divide_by_2() here? 
-
-            calcResult.steps++; // if curr is odd we do 2 operations at once and increase steps twice accordingly
-            if (calcResult.maxvalue < curr) calcResult.maxvalue = curr;
-        }
-
-        calcResult.steps++;
-
-        if (curr < m_unused.BitsCount()) m_unused.setTrue(curr); //m_paths[curr] = true;
-    }
-}
-
 // еще оптимизация - держать кеш в диапазоне up/2....up. где up верхняя граница кеша.
 // держать кеш ниже чем up/2 нету смысла туда никогда не зайдем.
 // например диапазон 1G...2G 
 template<>
-void ThreeN1<uint64_t>::CacheToFileVarLen(const uint64_t& start, const std::string& fileName)
+void IThreeN1<uint64_t>::CacheToFileVarLen(const uint64_t& start, const std::string& fileName)
 {
     std::ofstream f;
     f.open(fileName, std::ios::out | std::ios::binary);
@@ -82,7 +51,7 @@ void ThreeN1<uint64_t>::CacheToFileVarLen(const uint64_t& start, const std::stri
 
 
 template<>
-void ThreeN1<uint64_t>::CacheFromFileVarLen(const std::string& fileName)
+void IThreeN1<uint64_t>::CacheFromFileVarLen(const std::string& fileName)
 {
     std::ifstream f;
     f.open(fileName, std::ios::out | std::ios::binary);
@@ -131,7 +100,7 @@ void ThreeN1<uint64_t>::CacheFromFileVarLen(const std::string& fileName)
 }
 
 template<>
-void ThreeN1<uint64_t>::CacheFromFileVarLen2(const std::string& fileName, int64_t itemsToRead)
+void IThreeN1<uint64_t>::CacheFromFileVarLen2(const std::string& fileName, int64_t itemsToRead)
 {
     std::ifstream f;
     f.open(fileName, std::ios::out | std::ios::binary);
@@ -143,14 +112,14 @@ void ThreeN1<uint64_t>::CacheFromFileVarLen2(const std::string& fileName, int64_
 
     uint64_t cnt{};
 
-    size_t maxSize = VarLenReadBuf(f, buf);
+    size_t maxSize = VarLenReadBuf(f, buf); // read one number
     size_t res = var_len_decode(buf, maxSize, &m_cacheStart);
     assert(res > 0);
 
-    maxSize = VarLenReadBuf(f, buf);
+    maxSize = VarLenReadBuf(f, buf); // read one number
     res = var_len_decode(buf, maxSize, &cnt);
     assert(res > 0);
-    // reading only itemsToRead items from cache file
+    // reading up to itemsToRead items from cache file
     if (itemsToRead != -1) cnt = std::min(cnt, (uint64_t)itemsToRead);
     m_cacheFinish = m_cacheStart + cnt;
 
