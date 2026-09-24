@@ -1,7 +1,6 @@
 #include <iostream>
-//#include <chrono>
 #include "Utils.h"
-#include "string_utils.h"
+#include "include/string_utils.h"
 
 
 uint64_t NumLen(uint64_t num)
@@ -33,6 +32,7 @@ size_t VarLenReadBuf(std::ifstream& fin, uint8_t* buf)
 std::string RemoveApo(const std::string& str)
 {
     std::string res;
+    res.reserve(str.size());
     for (size_t i = 0; i < str.length(); i++)
     {
         if (str[i] != '\'') res += str[i];
@@ -42,9 +42,9 @@ std::string RemoveApo(const std::string& str)
 }
 
 
-// parses one value either m_realStart or m_realLength in format with Factor multiplier: B, K, M, G, T, P
+// parses string in format with Factor multiplier: B, K, M, G, T, P
 // examples: 100G, 5T, 20000G, 400M, 0B
-// returns back symFactor and factor values, and real calculated value as uint64 as a result of function call 
+// returns back FactorSym and FactorInt values, and real calculated value as uint64 as a result of function call 
 uint64_t ParseNumber(std::string num, char& FactorSym, uint64_t& FactorInt)
 {
     const std::string SYMBOLS = "BKMGTP";
