@@ -1,11 +1,10 @@
 #pragma once
 
 #include <fstream>
-
 #include "BuferedFileStream.h"
 
 
-enum PRIMES_FILE_FORMATS
+enum class PRIMES_FILE_FORMAT
 {
 	none,
 	txt,
@@ -15,19 +14,30 @@ enum PRIMES_FILE_FORMATS
 	bindiffvar
 };
 
-#define FORMAT_TO_STR(arg) (arg==txt ? "TXT":arg==bin?"BIN":arg==txtdiff?"TXTDIFF":arg==bindiff?"BINDIFF":arg==bindiffvar?"BINDIFFVAR":"<unrecognized>")
+#define FORMAT_TO_STR(arg) (arg==PRIMES_FILE_FORMAT::txt ? "TXT":arg==PRIMES_FILE_FORMAT::bin?"BIN":arg==PRIMES_FILE_FORMAT::txtdiff? \
+     "TXTDIFF":arg==PRIMES_FILE_FORMAT::bindiff?"BINDIFF":arg==PRIMES_FILE_FORMAT::bindiffvar?"BINDIFFVAR":"<unrecognized>")
 
-#define STR_TO_FORMAT(arg) (arg=="TXT"?txt:arg=="BIN"?bin:arg=="TXTDIFF"?txtdiff:arg=="BINDIFF"?bindiff:arg=="BINDIFFVAR"?bindiffvar:none)
+#define STR_TO_FORMAT(arg) (arg=="TXT"?PRIMES_FILE_FORMAT::txt:arg=="BIN"?PRIMES_FILE_FORMAT::bin:arg=="TXTDIFF"?PRIMES_FILE_FORMAT::txtdiff: \
+     arg=="BINDIFF"?PRIMES_FILE_FORMAT::bindiff:arg=="BINDIFFVAR"?PRIMES_FILE_FORMAT::bindiffvar:PRIMES_FILE_FORMAT::none)
 
 size_t var_len_encode(uint8_t buf[9], uint64_t num);
 size_t var_len_decode(const uint8_t buf[], size_t size_max, uint64_t * num);
 
+// Functions for working with files of various formats containing prime numbers: txt, txtdiff, bin, bindiff, bindiffvar
+// Function for reading, writing and converting files between there formats.
 class PrimesFIO
 {
 private:
-	
-public:
+	// allowed file format extensions (in uppercase for proper comparing)
+	inline static const std::string TXT = "TXT" ; //TODO decide whether to use string or string_view
+	inline const static std::string_view BIN = "BIN";
+	inline static const std::string DIFF = "DIFF";
+	inline static const std::string_view DIFFVAR = "DIFFVAR";
 
+public:
+	static PRIMES_FILE_FORMAT GetFileType(std::string& fileName);
+
+	//TODO make all these methods static???
 	size_t LoadFromTXT(uint64_t* arr, size_t len, std::fstream& f);
 	size_t LoadFromTXTDiff(uint64_t* arr, size_t len, uint64_t& lastPrime, std::fstream& f);
 	size_t LoadFromBIN(uint64_t* arr, size_t len, std::fstream& f);
