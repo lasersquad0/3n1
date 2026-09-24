@@ -12,7 +12,7 @@
 
 
 template<typename IntImpl>
-class ThreeN1;
+class IThreeN1;
 
 //template<typename IntImpl>
 //struct ThreeN1Data;
@@ -24,17 +24,17 @@ template<typename IntImpl>
 class ThreeN1Task : public MT::Task
 {
 private:
-	IntImpl m_start, m_end; // current range
-	IntImpl m_mvnum;        // number from the range that generates max value in 3p1 sequence
-	IntImpl m_msnum;        // number from the range that generates max steps in 3p1 sequence
-	IntImpl m_maxvalue;     // max value reached during calculating current range
-	uint64_t m_maxsteps;         // max value of steps in 3p1 sequence in current range
-	ThreeN1<IntImpl>& m_parent;
+	IntImpl m_start, m_end;   // current range
+	IntImpl m_mvnum;          // number from the range that generates max value in 3p1 sequence
+	IntImpl m_msnum;          // number from the range that generates max steps in 3p1 sequence
+	IntImpl m_maxvalue;       // max value reached during calculating current range
+	uint64_t m_maxsteps;      // max value of steps in 3p1 sequence in current range
+	IThreeN1<IntImpl>& m_parent;
 
 	static inline uint seq = 0;
 
 public:
-	ThreeN1Task(ThreeN1<IntImpl>& parent): Task(std::to_string(++seq)), m_parent(parent)
+	ThreeN1Task(IThreeN1<IntImpl>& parent): Task(std::to_string(++seq)), m_parent(parent)
 	{
 	};
 
@@ -50,7 +50,7 @@ public:
 		// std::osyncstream scout(std::cout);
 		// scout << "[" << id << "] " << "Starting task: " << std::endl;
 
-		typename ThreeN1<IntImpl>::CalcDataType calcData;
+		typename IThreeN1<IntImpl>::CalcDataType calcData;
 		m_maxvalue = m_start;
 		m_mvnum = m_start;
 		m_maxsteps = 0;
@@ -71,6 +71,7 @@ public:
 			}
 			catch (std::overflow_error & ex) // add intermediate range results into list and stop calc this range 
 			{
+				//TODO who can generate overflow_error?? nobody?
 				status = TaskStatus::error;
 				m_parent.addRangeData(getRangeData(i));	
 				syncout << std::setw(5) << "[" << id << "] " << "range: (" << m_start << "," << m_end << ") current number: " << i << " " << ex.what() << std::endl;
