@@ -7,6 +7,8 @@
 #pragma once
 
 #include <string>
+#include <ostream>
+#include "../include/string_utils.h"
 
 template <class CH>
 struct ci_char_traits : public std::char_traits<CH>
@@ -22,10 +24,14 @@ public:
 
     static int compare(const CH* s1, const CH* s2, size_t n)
     {
+        CH c1, c2;
         while (n-- != 0)
         {
-            if (mytoupper(*s1) < mytoupper(*s2)) return -1;
-            if (mytoupper(*s1) > mytoupper(*s2)) return 1;
+            c1 = mytoupper(*s1);
+            c2 = mytoupper(*s2);
+
+            if (c1 < c2) return -1;
+            if (c1 > c2) return 1;
             ++s1; ++s2;
         }
         return 0;
@@ -54,3 +60,8 @@ typedef ci_wstring ci_string;
 #else
 typedef ci_astring ci_string;
 #endif
+
+inline void PrintTo(const ci_string& s, std::ostream* os)
+{    
+    *os << convert_string<char>(s);
+}
