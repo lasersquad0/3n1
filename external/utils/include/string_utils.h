@@ -11,67 +11,118 @@
 #include <windows.h>
 #include <iostream>
 #include <string>
+#include <sstream>
 #include <vector>
 #include <filesystem>
 
-std::wstring stow(const std::string& str);
-//std::string MillisecToStr(long long ms);
-
 #if defined(UNICODE) || defined(_UNICODE)
+
 #define U(quote) L##quote  
 typedef wchar_t char_t;
 typedef std::wstring string_t;
 typedef std::wstringstream stringstream_t;
+typedef std::wostream ostream_t;
+
 #define to_string_t std::to_wstring
-#define toStringSep toStringSepW
+#define cout_t std::wcout
+
 #else
+
 #define U(quote) quote  
 typedef char char_t; 
 typedef std::string string_t;
 typedef std::stringstream stringstream_t;
 #define to_string_t std::to_string
-#define toStringSep toStringSepA
+#define cout_t std::cout
+typedef std::ostream ostream_t;
+
 #endif
 
 
-void Trim(std::string& str); //Note: str will be changed upon function return
+//void Trim(std::string& str); //Note: str will be changed upon function return
 void TrimAndUpper(std::string& str); //Note: str will be changed upon function return
 
+// special non-template function for wchar_t*
+//template<>
+std::string wtos(const wchar_t* wstr);
 
 template<class WSTRING>
 std::string wtos(const WSTRING& wstr)
 {
-    // make sure that STRING is one of instantiations of std::wstring
+    // make sure that STRING is one of instantiations of strings
     static_assert(std::is_base_of<std::basic_string<typename WSTRING::value_type, typename WSTRING::traits_type>, WSTRING>::value);
-    static_assert(std::is_same_v<typename WSTRING::value_type, wchar_t>);
+    // make sure that wstr is either std::string (no conversion required) or std::wstring
+    static_assert(std::is_same_v<typename WSTRING::value_type, wchar_t> || std::is_same_v<typename WSTRING::value_type, char>);
 
-    if (wstr.size() == 0) return "";
+    if constexpr (std::is_same_v<typename WSTRING::value_type, char>)
+    {
+        return wstr; // wstr is actually std::string
+    }
+    else
+    {
+        if (wstr.size() == 0) return "";
 
-    int len = WideCharToMultiByte(CP_UTF8, 0 /*WC_NO_BEST_FIT_CHARS*/, wstr.data(), (int)wstr.length(), nullptr, 0, nullptr, nullptr);
+        int len = WideCharToMultiByte(CP_UTF8, 0 /*WC_NO_BEST_FIT_CHARS*/, wstr.data(), (int)wstr.length(), nullptr, 0, nullptr, nullptr);
 
-    if (len == 0)
-        throw std::runtime_error(std::format("Error in WideCharToMultiByte 1. Error code: {}", GetLastError()));
+        if (len == 0)
+            throw std::runtime_error(std::format("Error in WideCharToMultiByte 1. Error code: {}", GetLastError()));
 
-    std::string dest;
-    dest.resize(len);
-    int err = WideCharToMultiByte(CP_UTF8, 0 /*WC_NO_BEST_FIT_CHARS*/, wstr.data(), (int)wstr.size(), dest.data(), len, nullptr, nullptr);
+        std::string dest;
+        dest.resize(len);
+        int err = WideCharToMultiByte(CP_UTF8, 0 /*WC_NO_BEST_FIT_CHARS*/, wstr.data(), (int)wstr.size(), dest.data(), len, nullptr, nullptr);
 
-    if (!err)
-        throw std::runtime_error(std::format("Error in WideCharToMultiByte 2. Error code: {}", GetLastError()));
+        if (!err)
+            throw std::runtime_error(std::format("Error in WideCharToMultiByte 2. Error code: {}", GetLastError()));
 
-    return dest;
+        return dest;
+    }
+}
+
+typedef char* pchar_t;
+// special non-template function for char*
+//template<>
+std::wstring stow(const char* str);
+
+template<typename STRING>
+std::wstring stow(const STRING& str)
+{
+    // make sure that STRING is one of instantiations of strings
+    static_assert(std::is_base_of<std::basic_string<typename STRING::value_type, typename STRING::traits_type>, STRING>::value);
+    // make sure that str is either std::wstring (no conversion required) or std::string
+    static_assert(std::is_same_v<typename STRING::value_type, wchar_t> || std::is_same_v<typename STRING::value_type, char>);
+
+    if constexpr (std::is_same_v<typename STRING::value_type, wchar_t>)
+    {
+        return str; // str is actually std::wstring
+    }
+    else
+    {
+        if (str.size() == 0) return L"";
+
+        int bufferSize = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, nullptr, 0); // Get the required buffer size
+        if (bufferSize == 0)
+            throw std::runtime_error(std::format("Error in MultiByteToWideChar 1. Error code: {}", GetLastError()));
+
+        std::wstring wstr(bufferSize, 0);
+
+        int result = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &wstr[0], bufferSize);
+        if (result == 0)
+            throw std::runtime_error(std::format("Error in MultiByteToWideChar 2. Error code: {}", GetLastError()));
+
+        wstr.resize(bufferSize - 1);
+
+        return wstr;
+    }
 }
 
 typedef wchar_t* pwchar_t; // needed for proper specialization for wchar_t*
-
-// special non-template function for wchar_t*
-template<>
-std::string wtos<wchar_t*>(const pwchar_t& wstr);
 
 // makes conversion between string and wstring back and forth
 template<typename T>
 constexpr std::basic_string<T> convert_string(const std::filesystem::path& str)
 {
+    static_assert(std::is_same_v<T, char> || std::is_same_v<T, wchar_t>);
+
     if constexpr (std::is_same_v<T, char>)
     {
         return str.string();
@@ -86,6 +137,7 @@ constexpr std::basic_string<T> convert_string(const std::filesystem::path& str)
     else if (std::is_same_v<T, char32_t>) {
         return str.u32string();
     } */
+
 }
 
 template<class STRING>
@@ -93,6 +145,7 @@ STRING MillisecToStr(uint64_t ms)
 {
     // make sure that STRING is one of instantiations of std::string
     static_assert(std::is_base_of<std::basic_string<typename STRING::value_type, typename STRING::traits_type>, STRING>::value);
+    static_assert(std::is_same_v<typename STRING::value_type, char> || std::is_same_v<typename STRING::value_type, wchar_t>);
 
     uint32_t milliseconds = ms % 1000;
     uint32_t seconds = (ms / 1000) % 60;
@@ -130,10 +183,44 @@ inline std::string MillisecToStr(uint64_t ms)
     return MillisecToStr<std::string>(ms);
 }
 
+/**
+* @brief Converts any integer like type into a STRING-like type with group separator applied.
+* @details Group separator is defined by MyGroupSeparator class
+* @param IntType Any integral type (int, long, int64_t, bool, char, wchar_t, short, etc)
+*/
+template<typename STRING, typename IntType>
+STRING toStringSep(IntType v)
+{
+    static_assert(std::is_integral<IntType>::value);
 
-/// converts any integer type into a string with group separator applied.
-/// group separator is defined by MyGroupSeparator class
-/// string_t can be either std::string or std::wstring
+    // make sure that STRING is one of instantiations of std::string
+    static_assert(std::is_base_of<std::basic_string<typename STRING::value_type, typename STRING::traits_type>, STRING>::value);
+
+    // helper class for integer formatting functions
+    struct MyGroupSeparator : std::numpunct<typename STRING::value_type>
+    {
+        typename STRING::value_type do_thousands_sep() const override { return ' '; } // thousands separator
+        std::string do_grouping() const override { return "\3"; } // group by 3
+    };
+
+    using stream_type = std::basic_stringstream<typename STRING::value_type, typename STRING::traits_type/*, std::allocator<typename STRING::value_type>*/>;
+    stream_type ss;
+    ss.imbue(std::locale(ss.getloc(), new MyGroupSeparator()));
+    ss << v;  // printing to string stream with formating
+    return ss.str();
+}
+
+template<typename IntType>
+string_t toStringSep(IntType v)
+{
+    return toStringSep<string_t, IntType>(v);
+}
+
+/** 
+* @brief Converts any integer like type into a std::string with group separator applied.
+* @details Group separator is defined by MyGroupSeparator class
+* @param IntType Any integral type (int, long, int64_t, bool, char, wchar_t, short, etc)
+*/
 template<typename IntType>
 std::string toStringSepA(IntType v)
 {
@@ -152,9 +239,11 @@ std::string toStringSepA(IntType v)
     return ss.str();
 }
 
-/// converts any integer type into a string with group separator applied.
-/// group separator is defined by MyGroupSeparator class
-/// string_t can be either std::string or std::wstring
+/**
+* @brief Converts any integer like type into a std::wstring with group separator applied.
+* @details Group separator is defined by MyGroupSeparator class
+* @param IntType Any integral type (int, long, int64_t, bool, char, wchar_t, short, etc)
+*/
 template<typename IntType>
 std::wstring toStringSepW(IntType v)
 {
@@ -201,6 +290,39 @@ void StringToArray(const STRING& str, std::vector<STRING>& arr, const typename S
         if (s.length() > 0)
             arr.push_back(s);
     }
+}
+
+// split string into array of strings using any symbol from DelimStr string as delimiter
+template<class STRING>
+void StringToArray(const STRING& str, std::vector<STRING>& arr, const STRING DelimStr)
+{
+    // make sure that STRING is one of instantiations of std::basic_string
+    static_assert(std::is_base_of<std::basic_string<typename STRING::value_type, typename STRING::traits_type>, STRING>::value);
+
+    size_t i = 0;
+    size_t len = str.length();
+    STRING s{};
+    s.reserve(len);
+
+    while (i < len)
+    {
+        if (DelimStr.find(str[i]) != STRING::npos)
+        {
+            if (s.length() > 0)
+            {
+                arr.push_back(s);
+                s.clear();
+            }
+            i++;
+        }
+        else
+        {
+            s += str[i++];
+        }
+    }
+
+    if (s.length() > 0)
+        arr.push_back(s);
 }
 
 // splits string to array of strings using Delim as delimiter
