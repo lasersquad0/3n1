@@ -40,7 +40,11 @@ static vector_string_t SplitString(const cli_string &text, const cli_string &del
 
 cli_string CHelpFormatter::Format(const cli_string &appName, COptionsList *options)
 {
-    cli_string helpBuffer(appName + _T(" usage:\n"));
+    cli_string helpBuffer(_T("Usage: "));
+    helpBuffer.append(appName);
+    helpBuffer.append(_T(" -command <arg1>...<argN>\n\n"));
+    helpBuffer.append(_T("Commands:\n"));
+
     vector_option_t& opt = options->GetAllOptions();
 
     vector_string_t argsNames;
@@ -73,7 +77,7 @@ cli_string CHelpFormatter::Format(const cli_string &appName, COptionsList *optio
         if (rargs > ARGS_THRESHOLD || oargs > ARGS_THRESHOLD)
         {
             auxBuffer.append(_T(" <req args>(") + to_clistring(rargs) + _T(")"));
-            auxBuffer.append(_T("...<total args>(up to ") + to_clistring(oargs) + _T(")"));
+            auxBuffer.append(_T("..<tot args>(") + to_clistring(oargs) + _T(")"));
         }
         else
         {
@@ -104,7 +108,8 @@ cli_string CHelpFormatter::Format(const cli_string &appName, COptionsList *optio
         auxBuffer.append(cli_string(largestArgsName - argsNames[i].size(), ' ') + argsParams[i]);
 
         vector_string_t descriptionLines = SplitString(opt[i].GetDescription(), _T("\n"));
-        if (!descriptionLines.empty()) auxBuffer.append(cli_string(largestArgsName + largestParamsName + 1 - auxBuffer.size(), ' ') + descriptionLines[0]);
+        if (!descriptionLines.empty()) 
+            auxBuffer.append(cli_string(largestArgsName + largestParamsName + 1 - auxBuffer.size(), ' ') + descriptionLines[0]);
 
         for (size_t l = 1; l < descriptionLines.size(); ++l)
         {
