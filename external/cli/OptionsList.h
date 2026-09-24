@@ -21,11 +21,13 @@
 class COptionsList
 {
 public:
+    COptionsList() { m_AllOptions.reserve(20); }
+
     /**
      * @brief Add a program option to the list.
      * @param option The option.
      */
-    void AddOption(COption& option);
+    bool AddOption(COption& option);
 
     /**
      * @brief Add a program option to the list.
@@ -38,7 +40,7 @@ public:
      * @param numArgs MAximum number of arguments of the option.
      * @param isRequired True if is required, false otherwise.
      */
-    void AddOption(const cli_string &shortName, const cli_string &longName, const cli_string &description, uint16_t numArgs, bool isRequired = false);
+    bool AddOption(const cli_string &shortName, const cli_string &longName, const cli_string &description, uint16_t numArgs, bool isRequired = false);
 
     /**
      * @brief Checks if short and long names have correct values (at least one of them is not empty).
@@ -68,6 +70,40 @@ public:
     COption *GetOptionByLongName(const cli_string &name);
 
     /**
+     * @brief Get option by the name (either short or long).
+     *
+     * @param name The name of the option.
+     * @return A pointer to the option if found, nullptr otherwise.
+     */
+    COption* GetOption(const cli_string& name);
+
+    /**
+     * @brief Easy way to get option by the name (either short or long).
+     *
+     * @param name The name of the option.
+     * @return A pointer to the option if found, nullptr otherwise.
+     */
+    COption* operator[](const cli_string& name) { return GetOption(name); }
+
+    /**
+    * @brief Registers pair of options that are mutually exclusive. They both cannot appear in one command line.
+    *
+    * @param name1 The name of the first option.
+    * @param name2 The name of the second option.
+    */
+    void MutuallyExclusive(const cli_string& name1, const cli_string& name2);
+
+    /**
+    * @brief Registers three options that are pairwise mutually exclusive. 
+    * Neither two of three (or all three) cannot appear in one command line.
+    *
+    * @param name1 The name of the first option.
+    * @param name2 The name of the second option.
+    * @param name3 The name of the third option.
+    */
+    void MutuallyExclusive(const cli_string& name1, const cli_string& name2, const cli_string& name3);
+
+    /**
      * @brief Retrieve all the options that have required arguments (at leas one such argument).
      * @return A copy to a vector of pointers to options.
      */
@@ -84,6 +120,10 @@ public:
      * @return A reference to a vector of options.
      */
     inline vector_option_t& GetAllOptions() { return m_AllOptions; }
+
+    void ResetOptions() { for (auto& opt : m_AllOptions) opt.Reset(); }
+
+    size_t Count() { return m_AllOptions.size(); }
 
 private:
     /** @brief List of all options. */

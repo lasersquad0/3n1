@@ -33,12 +33,13 @@ bool COptionsList::VerifyOptionNames(cli_string shortName, cli_string longName)
         return true;
 }
 
-void COptionsList::AddOption(COption& option)
+// if option exists already it will be "overwritten" by new option
+bool COptionsList::AddOption(COption& option)
 {
     const cli_string& sn = option.GetShortName();
     const cli_string& ln = option.GetLongName();
     
-    if (!VerifyOptionNames(sn, ln)) return; // option has invalid short and/or long names (or has incomlete data)
+    if (!VerifyOptionNames(sn, ln)) return false; // option has invalid short and/or long names (or has incomplete data)
 
     COption* opt;
 
@@ -51,13 +52,29 @@ void COptionsList::AddOption(COption& option)
         m_AllOptions.emplace_back(option); 
     else
         opt->Assign(option);
+
+    return true;
 }
 
-void COptionsList::AddOption(const cli_string &shortName, const cli_string &longName, const cli_string &description, uint16_t numArgs, bool isRequired)
+bool COptionsList::AddOption(const cli_string &shortName, const cli_string &longName, const cli_string &description, uint16_t numArgs, bool isRequired)
 {
-    COption o(shortName, longName, description, numArgs, isRequired);
-    //o.ShortName(shortName).LongName(longName).Descr(description).NumArgs(numArgs).RequiredArgs(numArgs).Required(isRequired);
-    AddOption(o);
+    if (!VerifyOptionNames(shortName, longName)) // option has invalid short and/or long names (or has incomplete data)
+        return false; 
+
+    COption* opt;
+
+    if (shortName.empty())
+        opt = GetOptionByLongName(longName);
+    else
+        opt = GetOptionByShortName(shortName);
+
+    if (opt == nullptr)
+        m_AllOptions.emplace_back(shortName, longName, description, numArgs, isRequired);
+    else
+        opt->Assign(shortName, longName, description, numArgs, isRequired);
+
+    //COption o(shortName, longName, description, numArgs, isRequired);
+    return true; //AddOption(o);
 }
 
 vector_option_pt COptionsList::GetOptionsWithRequiredArguments()
@@ -98,7 +115,7 @@ COption *COptionsList::GetOptionByShortName(const cli_string &name)
     return nullptr;
 }
 
-COption *COptionsList::GetOptionByLongName(const cli_string &name)
+COption* COptionsList::GetOptionByLongName(const cli_string &name)
 {
     for (auto &it : m_AllOptions)
     {
@@ -107,5 +124,31 @@ COption *COptionsList::GetOptionByLongName(const cli_string &name)
     }
 
     return nullptr;
+}
+
+COption* COptionsList::GetOption(const cli_string& name)
+{
+    auto opt = GetOptionByShortName(name);
+    if (opt == nullptr)
+        return GetOptionByLongName(name);
+    return opt;
+}
+
+void COptionsList::MutuallyExclusive(const cli_string& name1, const cli_string& name2)
+{
+    auto opt1 = GetOption(name1);
+    auto opt2 = GetOption(name2);
+    opt1->Excludes(opt2); // we do not need opt2->Excludes(opt1) here because first statement defines exclude in both directions
+}
+
+void COptionsList::MutuallyExclusive(const cli_string& name1, const cli_string& name2, const cli_string& name3)
+{
+    auto opt1 = GetOption(name1);
+    auto opt2 = GetOption(name2);
+    auto opt3 = GetOption(name3);
+
+    opt1->Excludes(opt2); // we do not need opt2->Excludes(opt1) here because first statement defines exclude in both directions
+    opt1->Excludes(opt3);
+    opt2->Excludes(opt3);
 }
 
