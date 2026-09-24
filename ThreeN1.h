@@ -8,7 +8,7 @@
 #include "thread_pool.h"
 #include "ThreeN1Task.h"
 #include "Utils.h"
-#include "include/string_utils.h"
+#include "utils/include/string_utils.h"
 #include "BigInt.h"
 
 template<typename IntImpl>

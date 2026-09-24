@@ -6,11 +6,11 @@
 #include <numeric>
 #include "DynamicArrays.h"
 #include "BigInt.h"
-#include "CommandLine.h"
-#include "DefaultParser.h"
-#include "HelpFormatter.h"
+#include "cli/CommandLine.h"
+#include "cli/DefaultParser.h"
+#include "cli/HelpFormatter.h"
 #include "ThreeN1.h"
-#include "include/string_utils.h"
+#include "utils/include/string_utils.h"
 #include "Utils.h"
 
 #define DEFAULT_THREADS 1
@@ -102,8 +102,8 @@ int _tmain(int argc, TCHAR* argv[])
 	
 	try
 	{
-		//ThreeN1Int64 calc1;
-		ThreeN1BigInt calc1;
+		ThreeN1Int64 calc1;
+		//ThreeN1BigInt calc1;
 
 		using IntImpl = decltype(calc1)::DataType;
 

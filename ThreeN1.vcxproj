@@ -118,7 +118,7 @@
       </SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)external/utils;$(ProjectDir)../ThreadPool;$(ProjectDir)external/cli;$(ProjectDir)../LogEngine2/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)external;$(ProjectDir)../LogEngine2/include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp23</LanguageStandard>
     </ClCompile>
     <Link>
@@ -134,7 +134,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)external/utils;$(ProjectDir)../ThreadPool;$(ProjectDir)external/cli;$(ProjectDir)../LogEngine2/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)external;$(ProjectDir)../LogEngine2/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp23</LanguageStandard>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -149,14 +149,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\common\src\string_utils.cpp" />
-    <ClCompile Include="..\ThreadPool\thread_pool.cpp" />
-    <ClCompile Include="..\ThreadPool\timer.cpp" />
     <ClCompile Include="BigInt.cpp" />
     <ClCompile Include="external\cli\CommandLine.cpp" />
     <ClCompile Include="external\cli\DefaultParser.cpp" />
     <ClCompile Include="external\cli\HelpFormatter.cpp" />
     <ClCompile Include="external\cli\Option.cpp" />
     <ClCompile Include="external\cli\OptionsList.cpp" />
+    <ClCompile Include="external\thread_pool.cpp" />
+    <ClCompile Include="external\timer.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="ThreeN1.cpp" />
     <ClCompile Include="ThreeN1BigInt.cpp" />
@@ -167,14 +167,14 @@
   <ItemGroup>
     <ClInclude Include="..\common\include\Ticks.h" />
     <ClInclude Include="..\LogEngine2\include\DynamicArrays.h" />
-    <ClInclude Include="..\ThreadPool\thread_pool.h" />
-    <ClInclude Include="..\ThreadPool\timer.h" />
     <ClInclude Include="BigInt.h" />
     <ClInclude Include="external\cli\CommandLine.h" />
     <ClInclude Include="external\cli\DefaultParser.h" />
     <ClInclude Include="external\cli\HelpFormatter.h" />
     <ClInclude Include="external\cli\Option.h" />
     <ClInclude Include="external\cli\OptionsList.h" />
+    <ClInclude Include="external\thread_pool.h" />
+    <ClInclude Include="external\timer.h" />
     <ClInclude Include="external\utils\include\string_utils.h" />
     <ClInclude Include="ThreeN1.h" />
     <ClInclude Include="ThreeN1Task.h" />
