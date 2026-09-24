@@ -16,12 +16,12 @@ bool CDefaultParser::HandleToken(const cli_string &token)
 {
     if (token == DASH || token == DDASH)
     {
-        m_LastError = _T("No name specified for the option");
+        m_LastError = _T("No name specified for the option.");
         return false;
     }
     else if (token.compare(0, 2, DDASH) == 0)
     {
-        if(m_CommandLine->HasOption(token.substr(2, token.size())))
+        if (m_CommandLine->HasOption(token.substr(2, token.size())))
         {
             m_LastError = _T("Duplicate option has been met: ") + token;
             return false;
@@ -49,14 +49,14 @@ bool CDefaultParser::HandleToken(const cli_string &token)
     }
     else if (m_CurrentOption && m_CurrentOption->HasArgs())
     {
-        if(m_CurrentOption->AcceptsArgs())
+        if (m_CurrentOption->AcceptsArgs())
         {
             m_CurrentOption->AddArg(token);
             UpdateOptionsWithArguments(m_CurrentOption);
         }
         else
         {
-            m_LastError = _T("Too many arguments for: ") + m_CurrentOption->GetNonEmptyName();
+            m_LastError = _T("Too many arguments for option: ") + m_CurrentOption->GetNonEmptyName(true);
             return false;
         }
     }
@@ -64,7 +64,7 @@ bool CDefaultParser::HandleToken(const cli_string &token)
     {
         m_LastError = _T("Unknown argument in command line: ") + token;
         return false;
-		//TODO(Andrei): Handle unknown token
+        //TODO(Andrei): Handle unknown token
     }
 
     return true;
@@ -109,7 +109,7 @@ void CDefaultParser::UpdateOptionsWithArguments(COption *option)
     size_t neededArgs = option->GetNumRequiredArgs();
     size_t availableArgs = option->GetArgs().size();  // actual number of option arguments added at the current moment of time
 
-	//bool argsAvailable = availableArgs >= neededArgs;//TODO shall we exit immediately if argsAvailable==false? no need doing 'for' in this case.
+    //bool argsAvailable = availableArgs >= neededArgs;// TODO shall we exit immediately if argsAvailable==false? no need doing 'for' in this case.
 
     if (availableArgs < neededArgs) return;
 
@@ -160,10 +160,6 @@ bool CDefaultParser::CheckMissingRequiredArguments()
 
     for (size_t i = 0; i < m_ExpectedOptionWithArguments.size(); ++i)
     {
-        //cli_string optName = m_ExpectedOptionWithArguments[i]->GetShortName();
-        //if (optName.empty())
-        //    optName = m_ExpectedOptionWithArguments[i]->GetLongName();
-
         cli_string optName = m_ExpectedOptionWithArguments[i]->GetNonEmptyName(true);
 
         m_LastError.append(optName);
@@ -196,6 +192,8 @@ bool CDefaultParser::CheckMissingRequiredArguments()
 //    return true;
 //}
 
+// m_ExpectedOption should be empty after parsing command line
+// if it is not empty that means error - not all required options are provided
 bool CDefaultParser::CheckMissingRequiredOptions()
 {
     if (m_ExpectedOption.empty()) return false;
@@ -206,14 +204,50 @@ bool CDefaultParser::CheckMissingRequiredOptions()
 
     for (size_t i = 0; i < m_ExpectedOption.size(); ++i)
     {
-        //cli_string optName = m_ExpectedOption[i]->GetShortName();
-        //if (optName.empty()) optName = m_ExpectedOption[i]->GetLongName();
-
         cli_string optName = m_ExpectedOption[i]->GetNonEmptyName(true);
 
         m_LastError.append(optName);
         if (i + 1 < m_ExpectedOption.size()) m_LastError.append(_T(", "));
     }
+
+    return true;
+}
+
+bool CDefaultParser::CheckMutuallyExclusive()
+{
+    auto& optList = m_CommandLine->GetOptions();
+
+    if (optList.empty()) return false;
+
+    cli_string auxStr;
+
+    for (auto opt: optList)
+    {
+        cli_string meList;
+        auto& excl = opt->GetExcludes();
+        for (const auto o : excl)
+        {
+            auto iter = std::find_if(optList.begin(), optList.end(), [o](COption* a)->bool { return *o == *a;});
+            if (iter != optList.end())
+            {
+                if (!meList.empty()) meList += _T(",");
+                meList += (*iter)->GetShortName();
+            }
+        }
+
+        if (!meList.empty())
+        {
+            auxStr.append(_T("("));
+            auxStr.append(opt->GetShortName());
+            auxStr.append(_T(" and "));
+            auxStr.append(meList);
+            auxStr.append(_T(") "));
+        }
+    }
+
+    if (auxStr.empty()) return false;
+
+    m_LastError = _T("There are mutually exclusive options found: ") + auxStr;
 
     return true;
 }
@@ -233,11 +267,11 @@ bool CDefaultParser::Parse(COptionsList *options, CCommandLine *cmd, _TCHAR *arg
 
 bool CDefaultParser::Parse(COptionsList *options, CCommandLine *cmd, const vector_string_t& args)
 {
-    /*if (args.size() == 0)
+    if (args.size() == 0)
     {
         m_LastError = _T("Empty list of options in command line");
         return false;
-    }*/
+    }
 
     if (options == nullptr)
     {
@@ -259,6 +293,8 @@ bool CDefaultParser::Parse(COptionsList *options, CCommandLine *cmd, const vecto
 
     for (const auto &arg : args)
     {
+        if (arg.empty()) continue; // bypass empty options or arguments
+
         if (!HandleToken(arg))
         {
             m_CommandLine->Clear();
@@ -266,7 +302,7 @@ bool CDefaultParser::Parse(COptionsList *options, CCommandLine *cmd, const vecto
         }
     }
 
-    if (CheckMissingRequiredOptions() || CheckMissingRequiredArguments() /* || CheckMissingArguments()*/)
+    if (CheckMissingRequiredOptions() || CheckMissingRequiredArguments() || CheckMutuallyExclusive() /* || CheckMissingArguments()*/)
     {
         return false;
     }
