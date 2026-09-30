@@ -1,6 +1,7 @@
 //
 // Project includes
 //
+#include <cassert>
 #include "OptionsList.h"
 
 //
@@ -22,11 +23,16 @@ static void TrimStr(cli_string& str)
     str.erase(0, strBegin);
 }
 
+// parameters intentionally passed by value
 bool COptionsList::VerifyOptionNames(cli_string shortName, cli_string longName)
 {
     TrimStr(shortName);
     TrimStr(longName);
+    
+    //assert(shortName.size() < 2);
+    //assert(!shortName.empty() || (shortName.empty() && !longName.empty()));
 
+    if (shortName.size() > 1) return false; // do not accept short names longer than 1 symbol
     if (shortName.empty()) // if shortName is empty then longName must be non-empty
         return !longName.empty();
     else
@@ -49,7 +55,7 @@ bool COptionsList::AddOption(COption& option)
         opt = GetOptionByShortName(sn);
 
     if (opt == nullptr)
-        m_AllOptions.emplace_back(option); 
+        m_AllOptions.emplace_back(option); // hope copy is made one time here
     else
         opt->Assign(option);
 
@@ -134,21 +140,27 @@ COption* COptionsList::GetOption(const cli_string& name)
     return opt;
 }
 
-void COptionsList::MutuallyExclusive(const cli_string& name1, const cli_string& name2)
+bool COptionsList::MutuallyExclusive(const cli_string& name1, const cli_string& name2)
 {
     auto opt1 = GetOption(name1);
     auto opt2 = GetOption(name2);
+    if (opt1 == nullptr || opt2 == nullptr) return false;
     opt1->Excludes(opt2); // we do not need opt2->Excludes(opt1) here because first statement defines exclude in both directions
+    return true;
 }
 
-void COptionsList::MutuallyExclusive(const cli_string& name1, const cli_string& name2, const cli_string& name3)
+bool COptionsList::MutuallyExclusive(const cli_string& name1, const cli_string& name2, const cli_string& name3)
 {
     auto opt1 = GetOption(name1);
     auto opt2 = GetOption(name2);
     auto opt3 = GetOption(name3);
 
+    if (opt1 == nullptr || opt2 == nullptr || opt3 == nullptr) return false;
+
     opt1->Excludes(opt2); // we do not need opt2->Excludes(opt1) here because first statement defines exclude in both directions
     opt1->Excludes(opt3);
     opt2->Excludes(opt3);
+
+    return true;
 }
 

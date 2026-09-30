@@ -1,6 +1,7 @@
 //
 // Project includes
 //
+#include <cassert>
 #include "Option.h"
 
 //
@@ -65,6 +66,8 @@ const cli_string COption::GetNonEmptyName(bool addDash /* =false*/)
 
 COption& COption::Excludes(COption* opt)
 {
+    if (opt == nullptr) return *this; // do nothing
+
     if (opt != this) // cannot add itself into excludes
     {
         m_Excludes.insert(opt);
