@@ -123,7 +123,7 @@ void MT::ThreadPool::stop()
 	paused = true;
 }
 
-void MT::ThreadPool::receive_signal(MT::task_id id) 
+void MT::ThreadPool::receive_signal(task_id_t id) 
 {
 	std::lock_guard<std::mutex> lock(signal_queue_mutex);
 	signal_queue.emplace(id);
@@ -143,7 +143,7 @@ void MT::ThreadPool::wait()
 	stop();
 }
 
-MT::task_id MT::ThreadPool::wait_signal() 
+MT::task_id_t MT::ThreadPool::wait_signal() 
 {
 	std::lock_guard<std::mutex> lock_wait(wait_mutex);
 
@@ -168,7 +168,7 @@ MT::task_id MT::ThreadPool::wait_signal()
 		return 0;
 	else 
 	{
-		MT::task_id signal = std::move(signal_queue.front());
+		task_id_t signal = std::move(signal_queue.front());
 		signal_queue.pop();
 		return signal;
 	}

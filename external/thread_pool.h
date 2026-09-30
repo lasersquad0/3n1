@@ -19,7 +19,7 @@
 
 namespace MT 
 {
-	typedef unsigned long long int task_id;
+	typedef unsigned long long int task_id_t;
 
 	// abstract task class
 	class Task 
@@ -43,13 +43,13 @@ namespace MT
 		void virtual one_thread_method() = 0;
 
 	protected:
-		MT::Task::TaskStatus status;
+		TaskStatus status;
 		// text description of the task (needed for beautiful logging)
 		std::string description;
 		// unique task ID
-		MT::task_id id;
+		task_id_t id;
 
-		MT::ThreadPool* thread_pool;
+		ThreadPool* thread_pool;
 
 		// thread-running method
 		void one_thread_pre_method();
@@ -66,17 +66,21 @@ namespace MT
 	class ThreadPool 
 	{
 
-		friend void MT::Task::send_signal();
+		friend void Task::send_signal();
 
 	public:
 		ThreadPool(int count_of_threads);
 
 		// template function for adding a task to the queue
 		template <typename TaskChild>
-		MT::task_id add_task(const TaskChild& task) 
+		task_id_t add_task(TaskChild* task) 
 		{
 			std::lock_guard<std::mutex> lock(task_queue_mutex);
-			task_queue.push(std::make_shared<TaskChild>(task));
+
+			task_queue.push(task);
+
+			//task_queue.push(std::make_shared<TaskChild>(task));
+			
 			// assign a unique id to a new task
 			// the minimum value of id is 1
 			task_queue.back()->id = ++last_task_id;
@@ -94,7 +98,7 @@ namespace MT
 
 		// waiting for the current task queue to be completely processed or suspended,
 		// returns the id of the task that first signaled and 0 otherwise
-		MT::task_id wait_signal();
+		task_id_t wait_signal();
 
 		// wait for the current task queue to be fully processed,
 		// ignoring any pause signals
@@ -108,7 +112,8 @@ namespace MT
 
 		// get result by id
 		template <typename TaskChild>
-		std::shared_ptr<TaskChild> get_result(MT::task_id id) 
+		//std::shared_ptr<TaskChild> get_result(MT::task_id id)
+		TaskChild* get_result(task_id_t id)
 		{
 			auto elem = completed_tasks.find(id);
 			if (elem != completed_tasks.end())
@@ -121,14 +126,16 @@ namespace MT
 		void clear_completed();
 
 		template <typename TaskChild>
-		void move_completed(std::vector<std::shared_ptr<TaskChild>>& out)
+		//void move_completed(std::vector<std::shared_ptr<TaskChild>>& out)
+		void move_completed(std::vector<TaskChild*>& out)
 		{
 			{
 				std::lock_guard lock(completed_tasks_mutex);
 
 				for (auto iter = completed_tasks.begin(); iter != completed_tasks.end(); ++iter)
 				{
-					out.push_back(std::reinterpret_pointer_cast<TaskChild>(iter->second));
+					//out.push_back(std::reinterpret_pointer_cast<TaskChild>(iter->second));
+					out.push_back(dynamic_cast<TaskChild*>(iter->second));
 				}
 			}
 
@@ -161,14 +168,16 @@ namespace MT
 		std::vector<MT::Thread*> threads;
 
 		// task queue
-		std::queue<std::shared_ptr<Task>> task_queue;
-		MT::task_id last_task_id;
+		//std::queue<std::shared_ptr<Task>> task_queue;
+		std::queue<Task*> task_queue;
+		task_id_t last_task_id;
 
 		// array of completed tasks in the form of a hash table
-		std::unordered_map<MT::task_id, std::shared_ptr<Task>> completed_tasks;
+		//std::unordered_map<MT::task_id, std::shared_ptr<Task>> completed_tasks;
+		std::unordered_map<task_id_t, Task*> completed_tasks;
 		unsigned long long completed_task_count;
 
-		std::queue<task_id> signal_queue;
+		std::queue<task_id_t> signal_queue;
 
 		// pool stop flag
 		std::atomic<bool> stopped;
@@ -184,7 +193,7 @@ namespace MT
 		void run(MT::Thread* thread);
 
 		// pause processing with signal emission
-		void receive_signal(MT::task_id id);
+		void receive_signal(task_id_t id);
 
 		// permission to start the next thread
 		bool run_allowed() const;
