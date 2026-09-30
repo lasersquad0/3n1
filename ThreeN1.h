@@ -9,10 +9,9 @@
 #include "ThreeN1Task.h"
 #include "Utils.h"
 #include "utils/include/string_utils.h"
+#include "utils/include/Ticks.h"
 #include "BigInt.h"
-
-template<typename IntImpl>
-class ThreeN1Task;
+#include "ttmath/ttmath.h"
 
 #pragma pack(push, 1)
 template<typename IntImpl>
@@ -21,7 +20,7 @@ struct ThreeN1Data
 	// Optimization - initialization of fields intentionally skipped here
 	// array of ThreeN1Data will be initialized later by single memset call
 	IntImpl maxvalue; // = 0ull; 
-	uint16_t steps; // = 0; // looks like number of steps does not exceed 1300. We allocate 0..65535 range for it to save memory.
+	uint16_t steps = 0; // looks like number of steps does not exceed 1300. We allocate 0..65535 range for it to save memory.
 
 	//Read and Write
 	template<typename U>
@@ -32,18 +31,6 @@ struct ThreeN1Data
 };
 #pragma pack(pop)
 
-template<typename IntImpl>
-struct RangeData
-{
-	IntImpl start;
-	IntImpl finish;
-	IntImpl num1;
-	uint64_t num1steps;
-	IntImpl num2;
-	IntImpl num2maxvalue;
-	IntImpl errnum;
-	enum ThreeN1Task<IntImpl>::TaskStatus status;
-};
 
 template<typename U>
 std::ostream& operator<<(std::ostream& out, const struct ThreeN1Data<U>& d)
@@ -104,24 +91,22 @@ public:
 	using CacheType = THArray<CalcDataType>;
 
 protected:
-	bool checkInCache(const IntImpl& curr, CalcDataType& calcResult);
+	//bool checkInCache(const IntImpl& curr, CalcDataType& calcResult);
 	virtual void calc3p1Cache(const IntImpl& number, CalcDataType& calcResult) = 0;
 	void rangeDataToFile(const std::string& fileName);
 
 public:
 	THArraySorted<RangeData<IntImpl>> m_rangeData;
 	CacheType m_valuesCache;
-	IntImpl m_cacheStart; // this is range of cached values pre-loaded from file
+	IntImpl m_cacheStart;   // this is range of cached values pre-loaded from file
 	IntImpl m_cacheFinish;
 
 	uint64_t m_hits = 0;
-	std::mutex m_cacheMutex;
-	//const uint64_t PATHS_SIZE = 1'000'000'000ull;
-	//bool* m_paths;
+	std::mutex m_rangeMutex;
 	MyBitset m_unused; // false in this array means that cpecified number is unused, true - is used.
 
 	virtual void Calc3p1(const IntImpl& number, CalcDataType& calcResult) = 0;
-	virtual void Calc3p1(const IntImpl& number, std::vector<IntImpl>& chain, uint64_t& steps, IntImpl& maxNum) = 0;
+	virtual void Calc3p1(const IntImpl& number, std::vector<IntImpl>& chain, uint64_t& steps, IntImpl& maxNum) const = 0;
 	virtual void Calc3p1Range(const IntImpl& start, const IntImpl& finish) = 0;
 	virtual void Calc3p1RangeCache(const IntImpl& start, const IntImpl& finish) = 0;
 
@@ -135,7 +120,7 @@ public:
 
 	void addRangeData(RangeData<IntImpl> data)
 	{
-		std::lock_guard<std::mutex> lock(m_cacheMutex);
+		std::lock_guard<std::mutex> lock(m_rangeMutex);
 		m_rangeData.AddValue(data);
 	}
 
@@ -154,7 +139,7 @@ protected:
 	void calc3p1Cache(const uint64_t& number, CalcDataType64& calcResult) override;
 public:
 	void Calc3p1(const uint64_t& number, CalcDataType64& calcResult) override;
-	void Calc3p1(const uint64_t& number, std::vector<uint64_t>& chain, uint64_t& steps, uint64_t& maxNum) override;
+	void Calc3p1(const uint64_t& number, std::vector<uint64_t>& chain, uint64_t& steps, uint64_t& maxNum) const override;
 	void Calc3p1Range(const uint64_t& start, const uint64_t& finish) override;
 	void Calc3p1RangeCache(const uint64_t& start, const uint64_t& finish) override;
 };
@@ -167,12 +152,24 @@ protected:
 	void calc3p1Cache(const BigInt& number, CalcDataTypeBigInt& calcResult) override;
 public:
 	void Calc3p1(const BigInt& number, CalcDataTypeBigInt& calcResult) override;
-	void Calc3p1(const BigInt& number, std::vector<BigInt>& chain, uint64_t& steps, BigInt& maxNum) override;
+	void Calc3p1(const BigInt& number, std::vector<BigInt>& chain, uint64_t& steps, BigInt& maxNum) const override;
 	void Calc3p1Range(const BigInt& start, const BigInt& finish) override;
 	void Calc3p1RangeCache(const BigInt& start, const BigInt& finish) override;
 };
 
-
+using TTMathBigInt = ttmath::UInt<10>;
+class ThreeN1TTMath : public IThreeN1<TTMathBigInt>
+{
+public:
+	using CalcDataTypeTTMath = ThreeN1Data<TTMathBigInt>;
+protected:
+	void calc3p1Cache(const TTMathBigInt& number, CalcDataTypeTTMath& calcResult) override;
+public:
+	void Calc3p1(const TTMathBigInt& number, CalcDataTypeTTMath& calcResult) override;
+	void Calc3p1(const TTMathBigInt& number, std::vector<TTMathBigInt>& chain, uint64_t& steps, TTMathBigInt& maxNum) const override;
+	void Calc3p1Range(const TTMathBigInt& start, const TTMathBigInt& finish) override;
+	void Calc3p1RangeCache(const TTMathBigInt& start, const TTMathBigInt& finish) override;
+};
 
 
 // check if curr number is in cache.
@@ -180,7 +177,7 @@ public:
 // if curr is IN cache range:
 //   if curr is found in cache - caclResult is updated and function returns true
 //   if curr is NOT found in cache then it calls calc3p1Cache to calc curr, updates calcResult with new data and returns true;
-template<typename IntImpl>
+/*template<typename IntImpl>
 bool IThreeN1<IntImpl>::checkInCache(const IntImpl& curr, CalcDataType& calcResult)
 {
 	if (curr >= m_cacheStart && curr < m_cacheFinish)
@@ -208,7 +205,7 @@ bool IThreeN1<IntImpl>::checkInCache(const IntImpl& curr, CalcDataType& calcResu
 
 	return false;
 }
-
+*/
 
 
 // calculate big range using threads.
@@ -216,8 +213,8 @@ bool IThreeN1<IntImpl>::checkInCache(const IntImpl& curr, CalcDataType& calcResu
 template<typename IntImpl>
 void IThreeN1<IntImpl>::Calc3p1allThreads(const IntImpl& start, const IntImpl& finish, uint64_t threadsCnt)
 {
+	Ticks::Start("calctime");
 	m_hits = 0;
-	//CalcDataType calcData{ 0ull, 0ull };
 	IntImpl range = finish - start;
 
 #ifdef USE_VALUES_CACHE
@@ -238,39 +235,40 @@ void IThreeN1<IntImpl>::Calc3p1allThreads(const IntImpl& start, const IntImpl& f
 	// remove the pool from a pause, allowing streams to take on the tasks on the fly
 	thread_pool.start();
 
-	std::vector<std::shared_ptr<ThreeN1Task<IntImpl>>> stanbyTasks;
+	std::vector<ThreeN1Task<IntImpl>*> standbyTasks;
 	const uint64_t TASK_POOL_SIZE = 100;
 	const uint64_t TASK_POOL_INITIAL_SIZE = 3ull * TASK_POOL_SIZE / 2 + (threadsCnt+1); // one extra task just for sure
-	const uint64_t TASK_POOL_THRESHOLD = TASK_POOL_SIZE / 2;
-	const uint64_t ONE_TASK_RANGE = 10'000'000ull;
+	const uint64_t TASK_POOL_THRESHOLD = TASK_POOL_SIZE / 2; // add more tasks into pool when queue of tasks becomes less than this threshold
+	const uint64_t ONE_TASK_RANGE = 1'000'000ull;
+
+	//ThreeN1Task<IntImpl> toCopy(*this);
+	//standbyTasks.insert(standbyTasks.begin(), TASK_POOL_INITIAL_SIZE, &toCopy);
 
 	for (int j = 0; j < TASK_POOL_INITIAL_SIZE; j++) // total number of tasks need to be 1.5 times larger 
 	{
-		stanbyTasks.push_back(std::make_shared<ThreeN1Task<IntImpl>>(*this));
+		standbyTasks.push_back(new ThreeN1Task<IntImpl>(*this));
 	}
 
-	IntImpl rangeCount = range / ONE_TASK_RANGE;
+	std::osyncstream syncout(std::cout);
+	//std::locale loc(std::cout.getloc(), new MyGroupSeparator());
+	syncout.imbue(ThreeN1::Locale);
 
+	IntImpl rangeCount = range / ONE_TASK_RANGE;
 	if(rangeCount > 1'000'000)
 		std::cout << "Too wide range (" << start << "," << finish << "). It may take too much time to calculate." << std::endl;
-	
-	std::locale loc(std::cout.getloc(), new MyGroupSeparator());
-	std::osyncstream syncout(std::cout);
-	syncout.imbue(loc); //std::locale(std::cout.getloc(), new MyGroupSeparator())
+
+	std::cout << std::endl;
 
 	IntImpl rangeStart = start;
 	uint64_t tasksCount = 0;
-	while (true) //(rangeStart < finish)
+	
+	auto cycleStart = std::chrono::high_resolution_clock::now();
+	while (true)
 	{
 		bool lastRange = false;
 
 		if (thread_pool.task_queue_size() < TASK_POOL_THRESHOLD)
 		{
-			syncout << std::format(loc, "{:<{}}: {:L}", "Tasks processed", F_WIDTH, tasksCount) << std::endl;
-			syncout << std::format(loc, "{:<{}}: {:L}", "Tasks in queue", F_WIDTH, thread_pool.task_queue_size()) << std::endl;
-			//syncout << "Tasks completed: " << thread_pool.tasks_completed() << std::endl;
-			syncout << std::format(loc, "{:<{}}: {:L}", "Tasks standby", F_WIDTH, stanbyTasks.size()) << std::endl;
-
 			for (int j = 0; j < TASK_POOL_SIZE; j++, rangeStart+=ONE_TASK_RANGE) // total number of tasks need to be 1.5 times larger 
 			{
 				IntImpl rangeFinish = rangeStart + ONE_TASK_RANGE;
@@ -280,30 +278,46 @@ void IThreeN1<IntImpl>::Calc3p1allThreads(const IntImpl& start, const IntImpl& f
 					lastRange = true;
 				}
 
-				std::shared_ptr<ThreeN1Task<IntImpl>> task = stanbyTasks.back(); // [stanbyTasks.size() - 1];
-				stanbyTasks.pop_back();
+				//std::shared_ptr<ThreeN1Task<IntImpl>> task = standbyTasks.back(); 
+				auto task = standbyTasks.back();
+				standbyTasks.pop_back();
 				task->InitTask(rangeStart, rangeFinish); // put new range into exisiting (cached) task object
-				thread_pool.add_task(*task);
+				thread_pool.add_task(task);
 				tasksCount++;
 				if (lastRange) break; // we've added the last range for processing, stopping the loop then
 			}
+
+			auto tasksInQueue = thread_pool.task_queue_size();
+			syncout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Tasks total", F_WIDTH, rangeCount) << std::endl;
+			syncout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Tasks finished", F_WIDTH, tasksCount - tasksInQueue) << std::endl;
+			syncout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Tasks in queue", F_WIDTH, tasksInQueue) << std::endl;
+			syncout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Tasks standby", F_WIDTH, standbyTasks.size()) << std::endl;
+			syncout << std::format(ThreeN1::Locale, "{:<{}}: {}",   "Time spent", F_WIDTH, MillisecToStr(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - cycleStart).count())) << std::endl;
+			syncout << std::endl;
+			syncout.emit();
+			cycleStart = std::chrono::high_resolution_clock::now();
 		}
 
 		if (lastRange) break;
 
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 		
-		thread_pool.move_completed(stanbyTasks); // move completed tasks back to standbyTasks and clean up completed tasks list		
+		thread_pool.move_completed(standbyTasks); // move completed tasks back to standbyTasks and clean up completed tasks list		
 	}
 
-	syncout << std::endl << "All tasks added. Waiting till they finished." << std::endl;
+	syncout << "All tasks added. Waiting till they finished." << std::endl;
+	syncout.emit();
 
 	thread_pool.wait();
-	thread_pool.move_completed(stanbyTasks);
+	thread_pool.move_completed(standbyTasks);
 
-	assert(stanbyTasks.size() == TASK_POOL_INITIAL_SIZE);
+	assert(standbyTasks.size() == TASK_POOL_INITIAL_SIZE);
 
-	syncout << "ALL TASKS COMPLETED" << std::endl;
+	for (auto item: standbyTasks) delete item;
+
+	standbyTasks.clear();
+
+	std::cout << "ALL TASKS COMPLETED" << std::endl;
 
 	thread_pool.stop();
 
@@ -313,8 +327,36 @@ void IThreeN1<IntImpl>::Calc3p1allThreads(const IntImpl& start, const IntImpl& f
 	syncout << "valuesCache.size:" << m_valuesCache.Count() << std::endl;
 	syncout << "hits:" << m_hits << std::endl;
 #endif
+
+	uint64_t maxsteps = 0;
+	uint64_t sumsteps = 0;
+	IntImpl maxmaxv{};
+	IntImpl snum{}, vnum{};
+
+	for (auto& item : m_rangeData)
+	{
+		if (maxsteps < item.num1steps)   maxsteps = item.num1steps, snum = item.num1;
+		if (maxmaxv < item.num2maxvalue) maxmaxv = item.num2maxvalue, vnum = item.num2;
+		sumsteps += item.sumsteps;
+	}
+
+	IntImpl bigss = sumsteps; // to avoid compiler error when uint64_t divided by IntImpl
+	auto calcTime = Ticks::Finish("calctime"); 
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {}", "Calculation time", F_WIDTH, MillisecToStr(calcTime)) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} for number: {:L}", "Max Steps", F_WIDTH, maxsteps, snum) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} for number: {:L}", "Max Value", F_WIDTH, maxmaxv, vnum) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Total Steps", F_WIDTH, sumsteps) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} steps", "Average Steps", F_WIDTH,  bigss / range) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} num/sec", "Average Speed", F_WIDTH, range * 1000 / calcTime) << std::endl;
+
+	for (auto& item : m_rangeData)
+	{
+		if (item.status != MT::Task::TaskStatus::completed)
+			std::cout << std::format(ThreeN1::Locale, "Task {:L} has finished with error", item.errnum) << std::endl;
+		
+	}
 	//syncout << "sumsteps:" << sumsteps << std::endl;
-	syncout << "MAXULONGLONG:" << std::numeric_limits<IntImpl>::max()/* ULLONG_MAX*/ << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "MAXULONGLONG", F_WIDTH, std::numeric_limits<uint64_t>::max()) << std::endl;
 }
 
 template<typename IntImpl>
@@ -413,3 +455,155 @@ void IThreeN1<IntImpl>::rangeDataToFile(const std::string& fileName)
 	f.flush();
 	f.close();
 }
+
+
+
+template<>
+struct std::formatter<TTMathBigInt> : std::formatter<std::string_view>
+{
+private:
+	static constexpr std::size_t max_spec_size = 256;
+public:
+	constexpr auto parse(std::format_parse_context& ctx)
+	{
+		auto begin = ctx.begin();
+		const auto end = ctx.end();
+
+		// Находим закрывающую '}' именно текущего replacement field.
+		// Вложенные {} возможны, например, в динамической ширине.
+		auto close = begin;
+		std::size_t nested = 0;
+
+		for (; close != end; ++close)
+		{
+			if (*close == '{')
+			{
+				++nested;
+			}
+			else if (*close == '}')
+			{
+				if (nested == 0)
+					break;
+
+				--nested;
+			}
+		}
+
+		if (close == end)
+			throw std::format_error("unterminated BigInt format specification");
+
+		/*
+		 * Для строковой спецификации L может находиться:
+		 *
+		 *   непосредственно перед '}'
+		 *   непосредственно перед 's'
+		 *   непосредственно перед '?'
+		 *
+		 * Примеры:
+		 *
+		 *   {:L}
+		 *   {:>20L}
+		 *   {:>20Ls}
+		 */
+		auto localeSpecifier = close;
+
+		if (localeSpecifier != begin)
+		{
+			--localeSpecifier;
+
+			// Если указан строковый presentation type,
+			// проверяем символ перед ним.
+			if ((*localeSpecifier == 's' || *localeSpecifier == '?') && localeSpecifier != begin)
+			{
+				--localeSpecifier;
+			}
+		}
+
+		// Если L отсутствует, можно напрямую вызвать базовый parse().
+		// Это важно в том числе для динамической ширины и точности.
+		if (localeSpecifier == close || *localeSpecifier != 'L')
+		{
+			return std::formatter<std::string_view>::parse(ctx);
+		}
+
+		/*
+		 * Создаём копию спецификации без L.
+		 *
+		 * Например:
+		 *
+		 *   >20L}  -> >20}
+		 *   *^20Ls} -> *^20s}
+		 */
+		std::array<char, max_spec_size> filtered{};
+		std::size_t size = 0;
+
+		for (auto it = begin; it != close; ++it)
+		{
+			if (it == localeSpecifier)
+				continue;
+
+			if (size + 1 >= filtered.size())
+			{
+				throw std::format_error("TTMathBigInt format specification is too long");
+			}
+
+			filtered[size++] = *it;
+		}
+
+		// Базовый formatter ожидает увидеть закрывающую '}'.
+		filtered[size++] = '}';
+
+		std::format_parse_context filteredContext{ std::string_view{filtered.data(), size} };
+
+		// Базовый string formatter сохраняет внутри себя ширину, выравнивание, fill, precision и presentation type.
+		const auto result = std::formatter<std::string_view>::parse(filteredContext);
+
+		// Убеждаемся, что базовый formatter дошёл до '}'.
+		if (result == filteredContext.end() || *result != '}')
+		{
+			throw std::format_error("invalid TTMathBigInt format specification");
+		}
+
+		// Возвращаем итератор исходного контекста, а не временного.
+		return close;
+	}
+
+	auto format(const TTMathBigInt& value, std::format_context& ctx) const
+	{
+		const std::string digits = value.ToString();
+
+		std::string result;
+		result.reserve(digits.size() + digits.size() / 3);
+
+		std::size_t firstDigit = 0;
+
+		// Знак не должен участвовать в группировке цифр.
+		if (!digits.empty() && (digits.front() == '-' || digits.front() == '+'))
+		{
+			result += digits.front();
+			firstDigit = 1;
+		}
+
+		const std::size_t digitCount = digits.size() - firstDigit;
+
+		for (std::size_t i = 0; i < digitCount; ++i)
+		{
+			if (i != 0 && (digitCount - i) % 3 == 0)
+				result += ' ';
+
+			result += digits[firstDigit + i];
+		}
+
+		/*
+		 * Здесь применяются настройки, которые базовый
+		 * formatter<string_view> сохранил в parse():
+		 *
+		 * - fill;
+		 * - align;
+		 * - width;
+		 * - precision;
+		 * - presentation type.
+		 */
+		return std::formatter<std::string_view>::format(result, ctx);
+	}
+};
