@@ -142,6 +142,5 @@ public:
 			cout_t << std::format(U("{:<{}} = {}"), item.first, maxLen, MillisecToStr<string_t>(std::chrono::duration_cast<std::chrono::milliseconds>(item.second - s[item.first]).count())) << std::endl;
 		}
 	}
-	
 };
 
