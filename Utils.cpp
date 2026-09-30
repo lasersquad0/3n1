@@ -45,15 +45,16 @@ std::string RemoveApo(const std::string& str)
 // parses string in format with Factor multiplier: B, K, M, G, T, P
 // examples: 100G, 5T, 20000G, 400M, 0B
 // returns back FactorSym and FactorInt values, and real calculated value as uint64 as a result of function call 
+//TODO what is we want parse numbers larger than uint64_t?
 uint64_t ParseNumber(std::string num, char& FactorSym, uint64_t& FactorInt)
 {
     const std::string SYMBOLS = "BKMGTP";
-    const uint64_t F_B = 1ULL;
-    const uint64_t F_K = 1ULL<<10;
-    const uint64_t F_M = 1ULL<<20;
-    const uint64_t F_G = 1ULL<<30;
-    const uint64_t F_T = 1ULL<<40;
-    const uint64_t F_P = 1ULL<<50;
+    const uint64_t F_B = 1;
+    const uint64_t F_K = 1000;
+    const uint64_t F_M = F_K * 1000;
+    const uint64_t F_G = F_M * 1000;
+    const uint64_t F_T = F_G * 1000;
+    const uint64_t F_P = F_T * 1000;
 
     // remove any leading and traling spaces, just in case.
     TrimAndUpper(num);
