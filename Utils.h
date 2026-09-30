@@ -7,11 +7,19 @@
 #include "BigInt.h"
 
 const uint32_t F_WIDTH = 27;
+const uint32_t MAX_VALUE_WIDTH = 27;
 
-struct MyGroupSeparator : std::numpunct<char>
+
+namespace ThreeN1
 {
-	char do_thousands_sep() const override { return ' '; } // thousands separator
-	std::string do_grouping() const override { return "\3"; } // group by 3
+	struct MyGroupSeparator : std::numpunct<char>
+	{
+		char do_thousands_sep() const override { return '\''; } // thousands separator
+		std::string do_grouping() const override { return "\3"; } // group by 3
+	};
+
+	inline std::locale Locale(std::cout.getloc(), new MyGroupSeparator());
+
 };
 
 uint64_t ParseNumber(std::string num, char& FactorSym, uint64_t& FactorInt);
