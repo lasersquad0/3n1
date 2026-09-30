@@ -16,6 +16,12 @@ int Length(const BigInt& a)
     return (int)a.digits.size();
 }
 
+// constants for quick compare with common values
+const BigInt BigInt::ONE(1);
+const BigInt BigInt::TWO(2);
+const BigInt BigInt::THREE(3);
+const BigInt BigInt::TEN(10);
+
 BigInt::BigInt(std::string& s)
 {
     digits = "";
@@ -53,7 +59,7 @@ BigInt::BigInt(const BigInt& a)
     digits = a.digits;
 }
 
-int BigInt::operator[](const int index)const
+int BigInt::operator[](const int index) const
 {
     if (digits.size() <= index || index < 0)
         throw TBigIntException("ERROR: Index out of bounds.");
