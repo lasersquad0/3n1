@@ -90,8 +90,9 @@ public:
     *
     * @param name1 The name of the first option.
     * @param name2 The name of the second option.
+    * @return True if pair is successfully added, False otherwise
     */
-    void MutuallyExclusive(const cli_string& name1, const cli_string& name2);
+    bool MutuallyExclusive(const cli_string& name1, const cli_string& name2);
 
     /**
     * @brief Registers three options that are pairwise mutually exclusive. 
@@ -101,7 +102,7 @@ public:
     * @param name2 The name of the second option.
     * @param name3 The name of the third option.
     */
-    void MutuallyExclusive(const cli_string& name1, const cli_string& name2, const cli_string& name3);
+    bool MutuallyExclusive(const cli_string& name1, const cli_string& name2, const cli_string& name3);
 
     /**
      * @brief Retrieve all the options that have required arguments (at leas one such argument).
