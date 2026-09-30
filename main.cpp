@@ -1,5 +1,5 @@
 
-#include <chrono>
+#include "debug.h"
 #include <locale>
 #include <string>
 #include <vector>
@@ -11,7 +11,9 @@
 #include "cli/HelpFormatter.h"
 #include "ThreeN1.h"
 #include "utils/include/string_utils.h"
+#include "utils/include/Ticks.h"
 #include "Utils.h"
+#include "ttmath/ttmath.h"
 
 #define DEFAULT_THREADS 1
 #define UNUSED_DEF_SIZE 1'000'000'000 // size of array in bits for tracking unused numbers
@@ -69,10 +71,15 @@ static void DefineOptions(COptionsList& options)
 	options.AddOption(OPT_H, _T("help"), _T("Show help"), 0);
 	
 	options.MutuallyExclusive(OPT_R, OPT_N); // cannot have both options -r and -n together in one cmd line
+
 }
 
 int _tmain(int argc, TCHAR* argv[])
 {
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+	_CrtMemState s1, s2, s3;
+	_CrtMemCheckpoint(&s1); // Take a snapshot at the start of main()
+
 	CDefaultParser defaultParser;
 	CCommandLine cmd;
 	COptionsList options;
@@ -93,17 +100,20 @@ int _tmain(int argc, TCHAR* argv[])
 	}
 
 	std::cout << std::endl << "Collatz conjecture solver (3n+1)" << std::endl << std::endl;
-
-	auto loc(std::locale(std::cout.getloc(), new MyGroupSeparator()));
-	std::cout.imbue(loc);
-
-	auto start1 = std::chrono::high_resolution_clock::now();
-	auto startFS = start1; // just to do not write long type definitions
 	
+	std::cout.imbue(ThreeN1::Locale);
+
+	Ticks::Start("totaltime");
+	//auto start1 = std::chrono::high_resolution_clock::now();
+	//auto startFS = start1; // just to do not write long type definitions
+
 	try
-	{
-		ThreeN1Int64 calc1;
-		//ThreeN1BigInt calc1;
+	{	
+		//ThreeN1TTMath calc1;
+		//ThreeN1Int64 calc1;
+		ThreeN1BigInt calc1;
+
+		ThreeN1BigInt compileTest;
 
 		using IntImpl = decltype(calc1)::DataType;
 
@@ -125,19 +135,19 @@ int _tmain(int argc, TCHAR* argv[])
 
 			std::cout << "Calculating chain for single number using Collatz rules." << std::endl << std::endl;
 
-			std::cout << std::format(loc, "{:<{}}: {}", "Starting number", F_WIDTH, number) << std::endl;
-			std::cout << std::format(loc, "{:<{}}: ", "Chain of numbers", F_WIDTH);
+			std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Starting number", F_WIDTH, number) << std::endl;
+			std::cout << std::format(ThreeN1::Locale, "{:<{}}: ", "Chain of numbers", F_WIDTH);
 
 			//TODO accumulate may be slow for large number of items in vector
-			std::string s = std::accumulate(std::next(chain.begin()), chain.end(), std::format(loc, "{}", chain.front()),
-				[&loc](std::string acc, uint64_t x) {
-					return std::move(acc) + "," + std::format(loc, "{:L}", x);
+			std::string s = std::accumulate(std::next(chain.begin()), chain.end(), std::format(ThreeN1::Locale, "{}", chain.front()),
+				[](std::string acc, IntImpl x) {
+					return std::move(acc) + "," + std::format(ThreeN1::Locale, "{:L}", x);
 				});
 
 			std::cout << s << std::endl;
 
-			std::cout << std::format(loc, "{:<{}}: {:L}", "Steps", F_WIDTH, steps) << std::endl;
-			std::cout << std::format(loc, "{:<{}}: {:L}", "Max number in chain", F_WIDTH, maxNumber) << std::endl;
+			std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Steps", F_WIDTH, steps) << std::endl;
+			std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Max number in chain", F_WIDTH, maxNumber) << std::endl;
 
 		}
 		else if (cmd.HasOption(OPT_R))
@@ -158,10 +168,8 @@ int _tmain(int argc, TCHAR* argv[])
 				finish = tmp;
 			}
 
-			if constexpr (std::is_same<decltype(calc1)::DataType, BigInt>::value) // for BigInt only
-				std::cout << std::format(loc, "{:<{}}: {} - {}", "Calculation Range", F_WIDTH, start, finish) << std::endl;
-			else
-				std::cout << std::format(loc, "{:<{}}: {} - {}", "Calculation Range", F_WIDTH, start, finish) << std::endl;
+			std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} - {:L}", "Calculation Range", F_WIDTH, start, finish) << std::endl;
+			std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Count of numbers", F_WIDTH, finish - start) << std::endl;
 
 			// exclude 0 and 1 from calc
 			if (start < 2) start = 2;
@@ -182,11 +190,11 @@ int _tmain(int argc, TCHAR* argv[])
 				auto unusedRange = std::min(Parameters::UNUSED_SIZE, toULongLong(finish));
 				calc1.TrackUnused(unusedRange);
 
-				std::cout << std::format(loc, "{:<{}}: 1..{:L}", "Track unused (range)", F_WIDTH, unusedRange) << std::endl;
+				std::cout << std::format(ThreeN1::Locale, "{:<{}}: 1..{:L}", "Track unused (range)", F_WIDTH, unusedRange) << std::endl;
 			}
 			else
 			{
-				std::cout << std::format(loc, "{:<{}}: OFF", "Track unused", F_WIDTH) << std::endl;
+				std::cout << std::format(ThreeN1::Locale, "{:<{}}: OFF", "Track unused", F_WIDTH) << std::endl;
 			}
 
 
@@ -202,7 +210,7 @@ int _tmain(int argc, TCHAR* argv[])
 				}
 			}
 
-			std::cout << std::format(loc, "{:<{}}: {:L}", "Calculation Threads", F_WIDTH, Parameters::THREADS) << std::endl;
+			std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Threads", F_WIDTH, Parameters::THREADS) << std::endl;
 
 
 			if (Parameters::THREADS > 1)
@@ -210,12 +218,12 @@ int _tmain(int argc, TCHAR* argv[])
 				if (cmd.HasOption(OPT_C))
 				{
 					//NOTE!!! Calculations in threads do NOT use CACHE at the moment
-					std::cout << std::format("{:<{}}: {}", "Use CACHE", F_WIDTH, "YES") << std::endl;
+					std::cout << std::format("{:<{}}: {}", "Use Cache", F_WIDTH, "YES") << std::endl;
 					calc1.Calc3p1allThreads(start, finish, Parameters::THREADS);
 				}
 				else
 				{
-					std::cout << std::format("{:<{}}: {}", "Use CACHE", F_WIDTH, "NO") << std::endl;
+					std::cout << std::format("{:<{}}: {}", "Use Cache", F_WIDTH, "NO") << std::endl;
 					calc1.Calc3p1allThreads(start, finish, Parameters::THREADS);
 				}
 			}
@@ -223,9 +231,10 @@ int _tmain(int argc, TCHAR* argv[])
 			{
 				if (cmd.HasOption(OPT_C))
 				{
-					std::cout << std::format("{:<{}}: {}", "Use CACHE", F_WIDTH, "YES") << std::endl << std::endl;
+					std::cout << std::format("{:<{}}: {}", "Use Cache", F_WIDTH, "YES") << std::endl << std::endl;
 
-					startFS = std::chrono::high_resolution_clock::now();
+					Ticks::Start("loading cache file");
+					//startFS = std::chrono::high_resolution_clock::now();
 
 					std::cout << "Loading cache data...";
 
@@ -237,9 +246,9 @@ int _tmain(int argc, TCHAR* argv[])
 					std::cout << "\r";
 
 
-					auto stop = std::chrono::high_resolution_clock::now();
-					std::cout << std::format("{:<{}}: {}", "Loaded cache count", F_WIDTH, calc1.m_valuesCache.Count()) << std::endl;
-					std::cout << std::format("{:<{}}: {}", "Loading cache time", F_WIDTH, MillisecToStr(std::chrono::duration_cast<std::chrono::milliseconds>(stop - startFS).count())) << std::endl;
+					//auto stop = std::chrono::high_resolution_clock::now();
+					std::cout << std::format("{:<{}}: {:L}", "Loaded cache count", F_WIDTH, calc1.m_valuesCache.Count()) << std::endl;
+					std::cout << std::format("{:<{}}: {}", "Loading cache time", F_WIDTH, MillisecToStr(Ticks::Finish("loading cache file"))) << std::endl;
 
 					calc1.Calc3p1RangeCache(start, finish);
 				}
@@ -250,7 +259,8 @@ int _tmain(int argc, TCHAR* argv[])
 				}
 			}
 
-			startFS = std::chrono::high_resolution_clock::now();
+			Ticks::Start("save file");
+			//startFS = std::chrono::high_resolution_clock::now();
 
 			//calc1.valuesCacheToFileBin(start, "3-1G.bin");
 			//calc1.CacheToFileVarLen(start, "3-1G.binvar");
@@ -264,11 +274,11 @@ int _tmain(int argc, TCHAR* argv[])
 			// calc2.rangeDataToFile("1298b-1399b BigInt.txt");
 
 			//auto stop = std::chrono::high_resolution_clock::now();
-			//std::cout << std::format("{:<{}}: {}", "Time spent for file saving", F_WIDTH, MillisecToStr(std::chrono::duration_cast<std::chrono::milliseconds>(stop - startFS).count())) << std::endl;
+			//std::cout << std::format("{:<{}}: {}", "Time spent for file saving", F_WIDTH, MillisecToStr(Ticks::Finish("save file")))) << std::endl;
 		}
 
-		auto stop = std::chrono::high_resolution_clock::now();
-		std::cout << std::format("{:<{}}: {}", "Total time spent", F_WIDTH, MillisecToStr(std::chrono::duration_cast<std::chrono::milliseconds>(stop - start1).count())) << std::endl;
+		//auto stop = std::chrono::high_resolution_clock::now();
+		std::cout << std::format("{:<{}}: {}", "Total time spent", F_WIDTH, MillisecToStr(Ticks::Finish("totaltime"))) << std::endl;
 	}
 	catch (THArrayException& ex)
 	{
@@ -289,5 +299,10 @@ int _tmain(int argc, TCHAR* argv[])
 	{
 		std::cout << "UNKNOWN EXCEPTION" << std::endl;
 	}
+
+	_CrtMemCheckpoint(&s2); // Take a snapshot at the end of main()
+	_CrtMemCheckpoint(&s2); // Take a snapshot at the end of main()
+	if (_CrtMemDifference(&s3, &s1, &s2)) _CrtMemDumpStatistics(&s3); // Dump memory statistics excluding global variables
+
 }
 
