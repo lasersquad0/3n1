@@ -16,6 +16,28 @@ int Length(const BigInt& a)
     return (int)a.digits.size();
 }
 
+    
+uint64_t toUInt64(const BigInt& v)
+{
+    constexpr uint64_t max64 = std::numeric_limits<uint64_t>::max();
+    assert(v.digits.size() > 0);
+    assert(v.digits.size() < 21); // 21 decimal digits surely do not fit into uint64_t
+    
+    if (v.digits.size() > 20) 
+        throw TBigIntException("BigInt ERROR: Passed BigInt value is too big to convert into uint64_t");
+
+    uint64_t res = 0;
+    for (int i = (int)v.digits.length() - 1; i >= 0; i--)
+    {
+        assert(res < (max64 - v.digits[i]) / 10);
+        if (res > (max64 - v.digits[i]) / 10)
+            throw TBigIntException("BigInt ERROR: Passed BigInt value is too big to convert into uint64_t");
+        res = res * 10 + v.digits[i];
+    }
+    return res;
+}
+
+
 // constants for quick compare with common values
 const BigInt BigInt::ONE(1);
 const BigInt BigInt::TWO(2);
@@ -426,7 +448,12 @@ BigInt Factorial(int n)
 
 std::istream& operator>>(std::istream& in, BigInt& a)
 {
-    std::string s;
+    uint8_t sz{}; // assume we work with numbers containing less than 255 decial digits
+    in.read((char*)&sz, sizeof(sz)); // number of decimal digits in BigInt 
+    a.digits.resize(sz);
+    in.read(a.digits.data(), sz);
+    
+    /*std::string s;
     in >> s; // read symbols till end of line (or will eof)
     int n = (int)s.size();
     a.digits.resize(n);
@@ -435,16 +462,23 @@ std::istream& operator>>(std::istream& in, BigInt& a)
         if (!isdigit(s[i]))
             throw TBigIntException("BigInt reading from stream error: INVALID NUMBER");
         a.digits[n - i - 1] = s[i] - '0';
-    }
+    }*/
     return in;
 }
 
 std::ostream& operator<<(std::ostream& out, const BigInt& a)
 {
-    for (int i = (int)a.digits.size() - 1; i >= 0; i--)
+    assert(a.digits.size() < 256);
+
+    uint8_t sz = (uint8_t)a.digits.size(); // assume we work with numbers containing less than 255 decial digits
+    out.write((char*)&sz, sizeof(sz));
+    out.write((char*)a.digits.data(), sz);
+
+    /*for (int i = (int)a.digits.size() - 1; i >= 0; i--)
         out << (std::string::value_type)(a.digits[i] + '0');
         //out << (short)a.digits[i];
-    //out << std::endl; // end-of-bigint-reading sign
+    out << std::endl; // end-of-bigint-reading sign
+    */
     return out;
 }
 
