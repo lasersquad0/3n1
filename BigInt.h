@@ -29,6 +29,7 @@ class BigInt
 {
 private:
     // digits[0] here is a least significant decimal digit
+    // each string item contains one decial digit as is e.g. if i'th digit is 5 then digits[i]='\05' (not '5' which is code of symbol '5') 
     std::string digits;
 public:
     // constants for quick compare with common values
@@ -42,9 +43,20 @@ public:
     BigInt(std::string& s);
     BigInt(const char* s);
     BigInt(const BigInt& a);
+    
+    const std::string& GetDigits() const { return digits; };
+    void SetDigits(std::string& dig) { digits = dig; }; // sets digits in internal format
 
     bool IsEven() { if (digits.length() == 0) return true;  else return (digits[0] & 1) == 0; };
     bool IsOdd()  { if (digits.length() == 0) return false; else return (digits[0] & 1) == 1; };
+
+    void RemoveLeadingZeros()
+    {
+        auto i = digits.length();
+        while (i > 0) 
+            if (digits[--i] != 0) break;
+        digits.resize(i + 1);
+    }
 
     bool HasTrailingZeros(unsigned int zeroes = 1) { for (unsigned int i = 0; i < zeroes; i++) if (digits[i] != 0) return false; return true; }
     
@@ -64,6 +76,7 @@ public:
     }*/
 
     //Helper Functions:
+    friend uint64_t toUInt64(const BigInt& v);
     friend void divide_by_2(BigInt& a);
     friend bool Null(const BigInt& a);
     friend int Length(const BigInt& a);
@@ -109,7 +122,7 @@ public:
     friend BigInt& operator^=(BigInt&, const BigInt&);
     friend BigInt operator^(BigInt&, const BigInt&);
 
-    //operator unsigned long long() const;
+    //operator uint64_t() const { }
 
     operator std::string() const 
     {
@@ -140,7 +153,9 @@ public:
 };
 
 void divide_by_2(BigInt& a);
+uint64_t toUInt64(const BigInt& v);
 
+/*
 template<class IntImpl>
 unsigned long long toULongLong(IntImpl b)
 {
@@ -158,6 +173,7 @@ inline unsigned long long toULongLong<uint64_t>(uint64_t b)
 {
     return b;
 }
+*/
 
 /*
 // Specialization std::formatter to use BigInt variables in std:format() calls
@@ -256,9 +272,7 @@ public:
          *   {:>20Ls}
          */
         auto localeSpecifier = close;
-
-        assert(localeSpecifier != begin);
-
+        
         if (localeSpecifier != begin)
         {
             --localeSpecifier;
@@ -269,8 +283,6 @@ public:
                 --localeSpecifier;
             }
         }
-
-        assert(localeSpecifier != close);
 
         // If L is not found we are just calling base parse().
         // This is important for proper handling dynamic width and prescision specifiers.
