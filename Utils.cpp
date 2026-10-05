@@ -1,6 +1,5 @@
 #include <iostream>
 #include "Utils.h"
-#include "utils/include/string_utils.h"
 
 
 uint64_t NumLen(uint64_t num)
@@ -42,68 +41,14 @@ std::string RemoveApo(const std::string& str)
 }
 
 
-// parses string in format with Factor multiplier: B, K, M, G, T, P
-// examples: 100G, 5T, 20000G, 400M, 0B
-// returns back FactorSym and FactorInt values, and real calculated value as uint64 as a result of function call 
-//TODO what is we want parse numbers larger than uint64_t?
-uint64_t ParseNumber(std::string num, char& FactorSym, uint64_t& FactorInt)
-{
-    const std::string SYMBOLS = "BKMGTP";
-    const uint64_t F_B = 1;
-    const uint64_t F_K = 1000;
-    const uint64_t F_M = F_K * 1000;
-    const uint64_t F_G = F_M * 1000;
-    const uint64_t F_T = F_G * 1000;
-    const uint64_t F_P = F_T * 1000;
 
-    // remove any leading and traling spaces, just in case.
-    TrimAndUpper(num);
 
-    FactorSym = num.at(num.length() - 1); // we need symFACTOR later for output filename
-
-    uint64_t ffactor = 0;
-    if (SYMBOLS.find(FactorSym) != std::string::npos) // factor is present in num
-    {
-        switch (FactorSym)
-        {
-        case 'B': ffactor = F_B; break;
-        case 'K': ffactor = F_K; break;
-        case 'M': ffactor = F_M; break;
-        case 'G': ffactor = F_G; break;
-        case 'T': ffactor = F_T; break;
-        case 'P': ffactor = F_P; break;
-        default:
-            throw std::invalid_argument("[ParseNumber] String value should be a number with factor (one letter from list: BKMGTP). Factor is incorrect here: '" + num + "'.\n");
-        }
-
-        num = num.substr(0, num.length() - 1); // remove letter G at the end. Or T, or P, or M, or K or B.
-    }
-    else if (std::isdigit(FactorSym)) // looks like num is just number without factor at the end
-        ffactor = F_B;
-    else
-        throw std::invalid_argument("[ParseNumber] Incorrect num parameter '" + num + "'.\n");
-
-    uint64_t number;
-    try
-    {
-        number = std::stoull(num);
-    }
-    catch (...)
-    {
-        throw std::invalid_argument("[ParseNumber] String value should be a number: '" + num + "'.\n");
-    }
-
-    FactorInt = ffactor;
-
-    return number * ffactor;
-}
-
-uint64_t ParseNumber(std::string num)
+/*uint64_t ParseNumber(std::string num)
 {
     char FactorSym;
     uint64_t FactorInt;
-    return ParseNumber(num, FactorSym, FactorInt);
-}
+    return ParseNumber<uint64_t>(num, FactorSym, FactorInt);
+}*/
 
 size_t var_len_encode(uint8_t buf[9], uint64_t num)
 {
