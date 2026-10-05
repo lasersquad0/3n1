@@ -78,13 +78,71 @@ void ThreeN1BigInt::Calc3p1(const BigInt& number, CalcDataTypeBigInt& calcResult
 }
 
 // calculates ONE number WITH using cache
-// all intermediate numbers are added to the cache if they are in cache range
+// DOES NOT add items to the cache. Assumes that cache is full and loaded from a file.
 void ThreeN1BigInt::calc3p1Cache(const BigInt& number, CalcDataTypeBigInt& calcResult)
 {
 	BigInt curr = number;
+	BigInt mxval = number;
+	uint16_t steps = 0;
 
 	auto& unused = m_unused;
 	const auto bitsCount = unused.BitsCount();
+	if (curr < bitsCount) unused.setTrue(curr);
+
+	//BigInt chain[IThreeN1::MAX_STEPS];
+
+	//uint16_t index = 0;
+	//chain[index++] = number;
+
+	while (curr != BigInt::ONE)
+	{
+		if ((curr.IsEven())) 
+		{
+			divide_by_2(curr);
+			//chain[index++] = curr;
+		}
+		else
+		{
+			curr = BigInt::THREE * curr + BigInt::ONE;
+			if (mxval < curr) mxval = curr;
+			if (curr < bitsCount) unused.setTrue(curr);
+			//chain[index++] = curr;
+			divide_by_2(curr);
+			//chain[index++] = curr;
+			steps++;
+		}
+		steps++;
+
+		if (curr < bitsCount) unused.setTrue(curr);
+
+		// check if curr is in cache
+		// if yes, add to cache all collected numbers chain and exit from the function
+		if (curr >= m_cacheStart && curr < m_cacheFinish)
+		{			
+			auto& elem = m_valuesCache[(uint32_t)toUInt64(curr - m_cacheStart)];
+			assert(elem.steps > 0);
+
+			m_hits++; //for each number we come here once
+			if (mxval < elem.maxvalue) mxval = elem.maxvalue;
+			//assert(index - 1 > 0);
+
+			steps += elem.steps;
+			break;
+		}
+	}
+
+	calcResult.steps = steps;
+	calcResult.maxvalue = mxval;
+}
+
+// calculates ONE number WITH using cache
+// all intermediate numbers are added to the cache if they are in cache range
+void ThreeN1BigInt::calc3p1CacheUpdate(const BigInt& number, CalcDataTypeBigInt& calcResult)
+{
+	BigInt curr = number;
+	auto& unused = m_unused;
+	const auto bitsCount = unused.BitsCount();
+
 	if (curr < bitsCount) unused.setTrue(curr);
 
 	BigInt chain[IThreeN1::MAX_STEPS];
@@ -94,14 +152,14 @@ void ThreeN1BigInt::calc3p1Cache(const BigInt& number, CalcDataTypeBigInt& calcR
 
 	while (curr != BigInt::ONE)
 	{
-		if ((curr.IsEven())) // is even
+		if (curr.IsEven()) // is even
 		{
 			divide_by_2(curr);
 			chain[index++] = curr;
 		}
 		else
 		{
-			curr = BigInt::THREE * curr + BigInt::ONE;
+			curr = curr * BigInt::THREE + BigInt::ONE;
 			if (curr < bitsCount) unused.setTrue(curr);
 			chain[index++] = curr;
 			divide_by_2(curr);
@@ -114,7 +172,8 @@ void ThreeN1BigInt::calc3p1Cache(const BigInt& number, CalcDataTypeBigInt& calcR
 		// if yes, add to cache all collected numbers chain and exit from the function
 		if (curr >= m_cacheStart && curr < m_cacheFinish)
 		{
-			CalcDataTypeBigInt& elem = m_valuesCache[(uint32_t)toULongLong(curr - m_cacheStart)];
+			CacheItemType& elem = m_valuesCache[(uint32_t)(toUInt64(curr - m_cacheStart))];
+
 			if (elem.steps > 0) // found in cache
 			{
 				m_hits++; //for each number we come here once
@@ -122,15 +181,15 @@ void ThreeN1BigInt::calc3p1Cache(const BigInt& number, CalcDataTypeBigInt& calcR
 				assert(index - 1 > 0);
 				for (int i = index - 2; i >= 0; i--)
 				{
-					auto& num = chain[i];
+					auto num = chain[i];
 					if (mxval < num) mxval = num;
 
 					if (num >= m_cacheStart && num < m_cacheFinish)
 					{
-						CalcDataTypeBigInt res;
+						CacheItemType res;
 						res.steps = (uint16_t)(index - 1 - i + elem.steps);
-						res.maxvalue = mxval;
-						m_valuesCache.SetValue((uint32_t)toULongLong(num - m_cacheStart), res);
+						res.maxvalue = toUInt64(mxval);
+						m_valuesCache.SetValue((uint32_t)toUInt64(num - m_cacheStart), res);
 					}
 				}
 				calcResult.steps = (index - 1 + elem.steps);
@@ -140,9 +199,9 @@ void ThreeN1BigInt::calc3p1Cache(const BigInt& number, CalcDataTypeBigInt& calcR
 		}
 	}
 
-	if (curr == BigInt::ONE)
+	if (curr == 1)
 	{
-		BigInt mxval(1);
+		BigInt mxval = 1;
 		for (int i = index - 1; i >= 0; i--)
 		{
 			auto& num = chain[i];
@@ -150,16 +209,17 @@ void ThreeN1BigInt::calc3p1Cache(const BigInt& number, CalcDataTypeBigInt& calcR
 
 			if (num >= m_cacheStart && num < m_cacheFinish)
 			{
-				CalcDataTypeBigInt res;
+				CacheItemType res;
 				res.steps = (uint16_t)(index - 1 - i);
-				res.maxvalue = mxval;
-				m_valuesCache.SetValue((uint32_t)toULongLong(num - m_cacheStart), res);
+				res.maxvalue = toUInt64(mxval);
+				m_valuesCache.SetValue((uint32_t)toUInt64(num - m_cacheStart), res);
 			}
 		}
 		calcResult.steps = index - 1;
 		calcResult.maxvalue = mxval;
 	}
-}
+};
+
 
 // calc ONE number WITH using cache
 // that might be faster than without cache, but not sure
@@ -198,29 +258,27 @@ void ThreeN1BigInt::calc3p1Cache(const BigInt& number, CalcDataTypeBigInt& calcR
 // calculate range of numbers WITHOUT using cache, collect and print some statistic
 void ThreeN1BigInt::Calc3p1Range(const BigInt& start, const BigInt& finish)
 {
-	uint64_t maxsteps = 0, sumsteps = 0, lineCnt = 0;
-	BigInt num1(0ull);
-	BigInt num2(0ull), maxmaxv(0ull);
-	CalcDataType calcData{ 0ull, 0ull };
-
-	//std::locale loc(std::cout.getloc(), new MyGroupSeparator());
-
 #ifdef _DEBUG
 	const uint64_t PRINT_VALUE = 20'000; // print "progress" on each 50Kth number
 #else
 	const uint64_t PRINT_VALUE = 100'000; // print "progress" on each 100Kth number
 #endif
-
-	uint64_t printCounter = PRINT_VALUE;
+	
 	Ticks::Start("calctime");
 	auto speedStart = std::chrono::high_resolution_clock::now();
 	std::chrono::high_resolution_clock::time_point speedStop;
 
+	StatDataType stat{};
+	CalcDataType calcData{ 0ull, 0ull };
+
 	size_t fieldWidth = NumLen(finish) + 2; //2 extra spaces
 	BigInt range = finish - start;
-
-	uint32_t MaxValWidth = MAX_VALUE_WIDTH;
-	std::string maxvalueStr;
+	uint64_t printCounter = PRINT_VALUE;
+	uint64_t maxValWidth = MAX_VALUE_WIDTH;
+	uint64_t maxProgressLen = 0;
+	uint64_t speed, avgsteps, lineCnt = 0;
+	std::string maxvalueStr, progressStr;
+	progressStr.reserve(200);
 
 	for (BigInt i = start; i < finish; i++)
 	{
@@ -228,55 +286,53 @@ void ThreeN1BigInt::Calc3p1Range(const BigInt& start, const BigInt& finish)
 		{
 			printCounter = PRINT_VALUE;
 			speedStop = std::chrono::high_resolution_clock::now();
-			auto speed = PRINT_VALUE * 1000 / std::chrono::duration_cast<std::chrono::milliseconds>(speedStop - speedStart).count();
-			//TODO calc length of the longest line here and use it below for clearing all the line 
-			std::cout << '\r' << std::format(ThreeN1::Locale, "{:L} | {}% | speed: {:L} num/sec", i + 1, (i - start) * 100 / range, speed) << '\r'; // i+1 is to avoid showing ... 999 999 in progress print
+			speed = PRINT_VALUE * 1000 / std::chrono::duration_cast<std::chrono::milliseconds>(speedStop - speedStart).count();
+			avgsteps = toUInt64(stat.sumsteps / (i - start));
+			progressStr.clear();
+			std::format_to(std::back_inserter(progressStr), ThreeN1::Locale, "{:L} | {}% | Speed: {:L} nums/sec | Average Steps: {:L}", i + 1, (i - start) * 100 / range, speed, avgsteps);
+			if (maxProgressLen < progressStr.size()) maxProgressLen = progressStr.size();
+			//progressStr.append(maxProgressLen - progressStr.size(), ' ');
+			std::cout << progressStr << "\r";
+			//std::cout << std::format(ThreeN1::Locale, "{:L} | {}% | Speed: {:L} num/sec | Average Steps: {:L}", i + 1, (i - start) * 100 / range, speed, stepsavg) << '\r'; // i+1 is to avoid showing ... 999 999 in progress print
 			speedStart = std::chrono::high_resolution_clock::now();
 		}
 
 		Calc3p1(i, calcData);
 
-		sumsteps += calcData.steps;
+		stat.sumsteps += calcData.steps;
 
-		if (maxmaxv < calcData.maxvalue)
+		if (stat.num2maxvalue < calcData.maxvalue)
 		{
-			num1 = i;
-			maxmaxv = calcData.maxvalue;
+			stat.num2 = i;
+			stat.num2maxvalue = calcData.maxvalue;
 			maxvalueStr = std::format(ThreeN1::Locale, "{:L}", calcData.maxvalue);
-			if (maxvalueStr.size() > MaxValWidth) MaxValWidth = (uint32_t)maxvalueStr.size();
-			std::cout << std::format(ThreeN1::Locale, "{:>5} Number: {:>{}} | steps: {:>5L} | MAX VALUE: {:>{}}", std::format(ThreeN1::Locale, "[{:L}]", lineCnt++),
-				std::format(ThreeN1::Locale, "{:L}", i), fieldWidth, calcData.steps, maxvalueStr, MaxValWidth) << std::endl;
+			if (maxvalueStr.size() > maxValWidth) maxValWidth = (uint32_t)maxvalueStr.size();
+			std::cout << std::format(ThreeN1::Locale, "{:>5} Number: {:>{}} | steps: {:>5L} | MAX VALUE: {:>{}}", 
+				std::format(ThreeN1::Locale, "[{:L}]", lineCnt++), std::format(ThreeN1::Locale, "{:L}", i), fieldWidth, calcData.steps, maxvalueStr, maxValWidth) << std::endl;
 		}
 
-		if (maxsteps < calcData.steps)
+		if (stat.num1steps < calcData.steps)
 		{
-			num2 = i;
-			maxsteps = calcData.steps;
+			stat.num1 = i;
+			stat.num1steps = calcData.steps;
 			maxvalueStr = std::format(ThreeN1::Locale, "{:L}", calcData.maxvalue);
 			std::cout << std::format(ThreeN1::Locale, "{:>5} Number: {:>{}} | STEPS: {:>5L} | max value: {:>{}}", std::format(ThreeN1::Locale, "[{:L}]", lineCnt++),
-				std::format(ThreeN1::Locale, "{:L}", i), fieldWidth, calcData.steps, maxvalueStr, MaxValWidth) << std::endl;
+				std::format(ThreeN1::Locale, "{:L}", i), fieldWidth, calcData.steps, maxvalueStr, maxValWidth) << std::endl;
 		}
 	}
 
 	//stop = std::chrono::high_resolution_clock::now();
 
-	std::cout << std::string(50, ' ') << "\r" << std::endl; // clear progress counter
+	std::cout << std::string(maxProgressLen, ' ') << "\r" << std::endl; // clear progress counter
 
+	/*
 	auto calcTime = Ticks::Finish("calctime"); //std::chrono::duration_cast<std::chrono::milliseconds>(stop - start0).count();
 	std::cout << std::format("{:<{}}: {}", "Calculation time", F_WIDTH, MillisecToStr(calcTime)) << std::endl;
-
-	/*auto num = std::max(num1, num2);
-	uint64_t dig;
-	if constexpr (std::is_same<IntImpl, BigInt>::value) // for BigInt only
-		dig = (uint64_t)(Length(num) * 1.35);
-	else
-		dig = (uint64_t)((log10(num) + 1)*1.35); // +30% for spaces between groups by 3 digits
-	*/
 	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} for number {:L}", "Max Steps", F_WIDTH, maxsteps, num2) << std::endl;
 	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} for number {:L}", "Max Value", F_WIDTH, maxmaxv, num1) << std::endl;
 	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Total Steps", F_WIDTH, sumsteps) << std::endl;
 	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Average Steps", F_WIDTH, sumsteps / range) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {} num/sec", "Average Speed", F_WIDTH, range * 1000 / calcTime) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} num/sec", "Average Speed", F_WIDTH, range * 1000 / calcTime) << std::endl;
 
 	if (m_unused.BitsCount() > 0)
 	{
@@ -298,13 +354,19 @@ void ThreeN1BigInt::Calc3p1Range(const BigInt& start, const BigInt& finish)
 		}
 
 		std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Unused numbers total", F_WIDTH, unused) << std::endl;
-		std::cout << std::format(ThreeN1::Locale, "{:<{}}: {}", std::format(ThreeN1::Locale, "Unused numbers (first {:L})", SHOW_FIRST_UNUSED), F_WIDTH, str) << std::endl;
+		std::cout << std::format("{:<{}}: {}", std::format(ThreeN1::Locale, "Unused numbers (first {:L})", SHOW_FIRST_UNUSED), F_WIDTH, str) << std::endl;
 	}
+	*/
+
+	printCalcResults(stat);
 }
 
-// calculate range of numbers WITH cache, collect and print some statistic
-// might be faster but I am not sure
-void ThreeN1BigInt::Calc3p1RangeCache(const BigInt& start, const BigInt& finish)
+// calculates range of numbers WITH cache
+// If item is not in cache -> adds it into cache
+// might be faster that "no cache" methods, but I am not sure
+// requires much memory for storing cache. 
+// cache stores pairs steps (uint16_t) and maxvalue (BigInt)
+void ThreeN1BigInt::Calc3p1RangeCacheUpdate(const BigInt& start, const BigInt& finish)
 {
 	uint64_t maxsteps = 0, sumsteps = 0, lineCnt = 0;
 	BigInt num1(0ull);
@@ -312,18 +374,20 @@ void ThreeN1BigInt::Calc3p1RangeCache(const BigInt& start, const BigInt& finish)
 	CalcDataType calcData{ 0ull, 0ull };
 
 	m_hits = 0;
-	BigInt range = finish - start + 1ull;
-	m_cacheStart = 5;
-	m_cacheFinish = m_cacheStart + range;
-	m_valuesCache.Clear();
+	BigInt range = finish - start;
+	assert(range < std::numeric_limits<uint32_t>::max()); // assuming range is	 less than 4G
+	uint32_t range32 = (uint32_t)toUInt64(range);
+	
+	m_cacheStart = range32;
+	m_cacheFinish = m_cacheStart + range32;
+	
 	Ticks::Start("memalloc");
-	m_valuesCache.SetCapacity((uint32_t)toULongLong(range));
-	m_valuesCache.SetCount((uint32_t)toULongLong(range)); // array is full of trash data after this call, use memset to set array elements into required values
+	m_valuesCache.Clear();
+	m_valuesCache.SetCapacity(range32); // SetCapacity calls constructors for each BigInt in the array. That takes a time. 
+	m_valuesCache.SetCount(range32); 
 	std::cout << std::format("{:<{}}: {}", "Mem alloc time", F_WIDTH, MillisecToStr(Ticks::Finish("memalloc"))) << std::endl;
 	//memset(m_valuesCache.GetValuePointer(0), 0, sizeof(decltype(m_valuesCache)::item_type) * range);
 	
-	//std::locale loc(std::cout.getloc(), new MyGroupSeparator());
-
 #ifdef _DEBUG
 	const uint64_t PRINT_VALUE = 20'000; // print "progress" on each 50Kth number
 #else
@@ -339,19 +403,20 @@ void ThreeN1BigInt::Calc3p1RangeCache(const BigInt& start, const BigInt& finish)
 	uint32_t MaxValWidth = MAX_VALUE_WIDTH;
 	std::string maxvalueStr;
 
-	for (BigInt i = start; i < finish; i++)
+	for (BigInt i = start; i <= finish; i++)
 	{
 		if (--printCounter == 0)
 		{
 			printCounter = PRINT_VALUE;
 			speedStop = std::chrono::high_resolution_clock::now();
 			auto speed = PRINT_VALUE * 1000 / std::chrono::duration_cast<std::chrono::milliseconds>(speedStop - speedStart).count();
+			uint64_t stepsavg = toUInt64(sumsteps / (i - start));
 			//TODO calc length of the longest line here and use it below for clearing all the line 
-			std::cout << '\r' << i + 1 << " | " << (i - start) * 100 / (finish - start) << "% | speed: " << speed << " num/sec " << '\r'; // i+1 is to avoid showing ... 999 999 in progress print
+			std::cout << std::format(ThreeN1::Locale, "{:L} | {}% | Speed: {:L} num/sec | Average Steps: {:L}", i + 1, (i - start) * 100 / range, speed, stepsavg) << '\r'; // i+1 is to avoid showing ... 999 999 in progress print
 			speedStart = std::chrono::high_resolution_clock::now();
 		}
 
-		calc3p1Cache(i, calcData);
+		calc3p1CacheUpdate(i, calcData);
 		//m_valuesCache.SetValue((uint32_t)(i - m_cacheStart), calcData); // works quicker than .AddValue()
 
 		sumsteps += calcData.steps;
@@ -378,24 +443,13 @@ void ThreeN1BigInt::Calc3p1RangeCache(const BigInt& start, const BigInt& finish)
 
 	std::cout << std::string(50, ' ') << "\r" << std::endl; // clear progress counter
 
-	auto calcTime = Ticks::Finish("calctime"); //std::chrono::duration_cast<std::chrono::milliseconds>(stop - start0).count();
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {}", "Calculation time", F_WIDTH, MillisecToStr(calcTime)) << std::endl;
-
-	/*auto num = std::max(num1, num2);
-	uint64_t dig;
-	if constexpr (std::is_same<IntImpl, BigInt>::value) // for BigInt only
-		dig = (uint64_t)(Length(num) * 1.35);
-	else
-		dig = (uint64_t)((log10(num) + 1) * 1.35); // +30% for spaces between groups by 3 digits
-
-	std::cout << std::format(loc, "Number: {:>{}L} | max steps: {}", toULongLong(num2), dig, maxsteps) << std::endl;
-	std::cout << std::format(loc, "Number: {:>{}L} | max value: {}", toULongLong(num1), dig, maxmaxv) << std::endl;
-*/
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} | for number: {:}", "Max Steps", F_WIDTH, maxsteps, num2) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:} | for number: {:}", "Max Value", F_WIDTH, maxmaxv, num1) << std::endl;
+	auto calcTime = Ticks::Finish("calctime");
+	std::cout << std::format("{:<{}}: {}", "Calculation time", F_WIDTH, MillisecToStr(calcTime)) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} | for number: {:L}", "Max Steps", F_WIDTH, maxsteps, num2) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} | for number: {:L}", "Max Value", F_WIDTH, maxmaxv, num1) << std::endl;
 	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} steps", "Total Steps", F_WIDTH, sumsteps) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:} steps", "Average Steps", F_WIDTH, sumsteps / range) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:} num/sec", "Average Speed", F_WIDTH, range * 1000 / calcTime) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} steps", "Average Steps", F_WIDTH, sumsteps / range) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} num/sec", "Average Speed", F_WIDTH, range * 1000 / calcTime) << std::endl;
 
 	if (m_unused.BitsCount() > 0)
 	{
@@ -418,10 +472,11 @@ void ThreeN1BigInt::Calc3p1RangeCache(const BigInt& start, const BigInt& finish)
 		}
 
 		std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Unused Numbers Total", F_WIDTH, unused) << std::endl;
-		std::cout << std::format(ThreeN1::Locale, "{:<{}}: {}", std::format(ThreeN1::Locale, "Unused Numbers (first {:L})", SHOW_FIRST_UNUSED), F_WIDTH, str) << std::endl;
+		std::cout << std::format("{:<{}}: {}", std::format(ThreeN1::Locale, "Unused Numbers (first {:L})", SHOW_FIRST_UNUSED), F_WIDTH, str) << std::endl;
 	}
 
 	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} items", "Cache Size", F_WIDTH, m_valuesCache.Count()) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} ", "Cache start", F_WIDTH, m_cacheStart) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} ", "Cache finish", F_WIDTH, m_cacheFinish) << std::endl;
 	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} ({}%)", "Cache Hits", F_WIDTH, m_hits, (100 * m_hits) / range) << std::endl;
-
 }
