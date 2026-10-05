@@ -71,12 +71,13 @@ public:
 
     /**
      * @brief Retrieves one of the option arguments. If the option is not found
-     * or the index of the argument is out of range, the default value will be
-     * returned.
+     * or the index of the argument is out of range, the same default value will be
+     * returned in both cases.
      *
      * @param opt The option name (short or long).
      * @param index The option argument index (starts with zero).
-     * @param defaultValue The default value.
+     * @param defaultValue The default value. Will be returned when option name is 
+     *        not found and when index is out of arguments range
      * @return The option argument value.
      */
     cli_string GetOptionValue(const cli_string &opt, size_t index = 0, const cli_string &defaultValue = _T(""));
