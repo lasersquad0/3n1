@@ -6,31 +6,32 @@
 // еще оптимизаци€ - держать кеш в диапазоне up/2....up. где up верхн€€ граница кеша.
 // держать кеш ниже чем up/2 нету смысла туда никогда не зайдем.
 // например диапазон 1G...2G 
+// Save cache only when IntImpl=uint64_t. 
+// other IntImpl implementation just must be able to read this file properly
 template<>
-void IThreeN1<uint64_t>::CacheToFileVarLen(const uint64_t& start, const std::string& fileName)
+void IThreeN1<uint64_t>::SaveCacheToFileVarLen()
 {
+    auto fileName = getCacheFileName(".diffvar");
+
     std::ofstream f;
     f.open(fileName, std::ios::out | std::ios::binary);
     if (f.fail())
-    {
-        //cout << "Cannot open file '" << fileTo << "' for writing, exiting." << endl;
         throw std::invalid_argument("Error: cannot open file '" + fileName + "'\n");
-    }
 
-    const uint64_t BUF_LEN = 100'000'000; // записываем в файл блоками по 100ћ
+    const uint64_t BUF_LEN = 100'000'000; // save by blocks of 100ћ size
     uint8_t* buf = new uint8_t[BUF_LEN];
 
-    uint64_t offset = var_len_encode(buf, start);
+    uint64_t offset = var_len_encode(buf, m_cacheStart);
     f.write((const char*)buf, offset);  // saving start number, all subsequent numbers will be get by +1 to start
 
     offset = var_len_encode(buf, m_valuesCache.Count());
-    f.write((const char*)buf, offset);  // saving expected number of items in a file
+    f.write((const char*)buf, offset);  // saving  number of items in cache 
 
     offset = 0;
     for (uint i = 0; i < m_valuesCache.Count(); ++i)
     {
         CalcDataType val = m_valuesCache[i];
-        assert(val.steps < 65536);
+        assert(val.steps < STEPS_MAX);
         offset += var_len_encode(buf + offset, (uint64_t)val.steps);
         offset += var_len_encode(buf + offset, val.maxvalue);
 
@@ -50,122 +51,6 @@ void IThreeN1<uint64_t>::CacheToFileVarLen(const uint64_t& start, const std::str
 }
 
 
-template<>
-void IThreeN1<uint64_t>::CacheFromFileVarLen(const std::string& fileName)
-{
-    std::ifstream f;
-    f.open(fileName, std::ios::out | std::ios::binary);
-    if (f.fail())
-    {
-        //cout << "Cannot open file '" << fileTo << "' for writing, exiting." << endl;
-        throw std::invalid_argument("Error: cannot open file '" + fileName + "'\n");
-    }
-
-    uint64_t start, cnt;
-    uint8_t buf[9];
-
-    size_t maxSize = VarLenReadBuf(f, buf);
-    size_t res = var_len_decode(buf, maxSize, &start);
-    assert(res > 0);
-
-    maxSize = VarLenReadBuf(f, buf);
-    res = var_len_decode(buf, maxSize, &cnt);
-    assert(res > 0);
-
-    m_valuesCache.SetCapacity((uint)(cnt));// +2ull)); // +2 just in case
-    CalcDataType val;
-    while (true)
-    {
-        maxSize = VarLenReadBuf(f, buf);
-        uint64_t tmp;
-        res = var_len_decode(buf, maxSize, &tmp);
-        assert(res > 0);
-        assert(tmp < 65536ull);
-        val.steps = (uint16_t)tmp;
-
-        maxSize = VarLenReadBuf(f, buf);
-        res = var_len_decode(buf, maxSize, &val.maxvalue);
-        assert(res > 0);
-
-        if (f.eof()) break;
-
-        m_valuesCache.AddValue(val);
-
-        cnt--;
-    }
-
-    assert(cnt == 0);
-
-    f.close();
-}
-
-template<>
-void IThreeN1<uint64_t>::CacheFromFileVarLen2(const std::string& fileName, int64_t itemsToRead)
-{
-    std::ifstream f;
-    f.open(fileName, std::ios::out | std::ios::binary);
-    if (f.fail())
-        throw std::invalid_argument("Error: cannot open file '" + fileName + "'\n");
-
-    const uint64_t BUF_LEN = 100'000'000; // read file by 100M blocks
-    uint8_t* buf = new uint8_t[BUF_LEN];
-
-    uint64_t cnt{};
-
-    size_t maxSize = VarLenReadBuf(f, buf); // read one number
-    size_t res = var_len_decode(buf, maxSize, &m_cacheStart);
-    assert(res > 0);
-
-    maxSize = VarLenReadBuf(f, buf); // read one number
-    res = var_len_decode(buf, maxSize, &cnt);
-    assert(res > 0);
-    // reading up to itemsToRead items from cache file
-    if (itemsToRead != -1) cnt = std::min(cnt, (uint64_t)itemsToRead);
-    m_cacheFinish = m_cacheStart + cnt;
-
-    m_valuesCache.Clear();
-    m_valuesCache.SetCapacity((uint)(toULongLong(cnt)));// +2ull)); // +2 just in case
-    CalcDataType val;
-    size_t offset = 0;
-    size_t actualBufSize = BUF_LEN;
-
-    f.read((char*)buf, BUF_LEN);
-
-    while (true)
-    {
-        if ((offset > actualBufSize - 9) && !f.eof())
-        {
-            size_t remainde = actualBufSize - offset;
-            memcpy(buf, buf + offset, remainde); // move remainding bytes into beginning of the buffer
-            f.read((char*)(buf + remainde), BUF_LEN - remainde);
-            actualBufSize = f.gcount() + remainde; // real number of read bytes
-            offset = 0;
-        }
-
-        uint64_t tmp;
-        res = var_len_decode(buf + offset, 9, &tmp);
-        assert(res > 0);
-        assert(tmp < 65536ull);
-        val.steps = (uint16_t)tmp;
-        offset += res;
-
-        res = var_len_decode(buf + offset, 9, &val.maxvalue);
-        assert(res > 0);
-        offset += res;
-
-        m_valuesCache.AddValue(val);
-
-        cnt--;
-        if (cnt == 0ull) break;
-        if (f.eof() && (offset >= actualBufSize)) break;
-    }
-
-    delete[] buf;
-
-    assert(cnt == 0ull);
-
-    f.close();
-}
 
 
 
