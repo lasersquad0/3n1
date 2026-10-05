@@ -35,7 +35,9 @@ struct ThreeN1Data
 template<typename U>
 std::ostream& operator<<(std::ostream& out, const struct ThreeN1Data<U>& d)
 {
-	out << d.maxvalue;
+	out << d.maxvalue; // we have overloaded operator << for BigInt that saves number in binary format
+	// d.steps is uint16_t type, we write two bytes in binary format here.
+	//out.write((char*)&d.steps, sizeof(d.steps));
 	out << d.steps;
 	return out;
 }
@@ -43,42 +45,30 @@ std::ostream& operator<<(std::ostream& out, const struct ThreeN1Data<U>& d)
 template<typename U>
 std::istream& operator>>(std::istream& in, struct ThreeN1Data<U>& d)
 {
-	in >> d.maxvalue;
+	in >> d.maxvalue;// we have overloaded operator >> for BigInt that can properly load number in binary format
+	//in.read((char*)&d.steps, sizeof(d.steps)); // reading two binary bytes.
 	in >> d.steps;
 	return in;
 }
 
+// Oprator == is needed by THArray to successfully compile functions like IndexOf()
 template<typename IntImpl>
 bool operator==(const struct ThreeN1Data<IntImpl>& a, const struct ThreeN1Data<IntImpl>& b)
 {
 	return a.steps == b.steps && a.maxvalue == b.maxvalue;
 }
 
-
 template<typename IntImpl>
-bool operator>(const struct RangeData<IntImpl>& a, const struct RangeData<IntImpl>& b)
+struct StatData
 {
-	return a.start > b.start;
-}
-
-template<typename IntImpl>
-bool operator==(const struct RangeData<IntImpl>& a, const struct RangeData<IntImpl>& b)
-{
-	return a.start == b.start;
-}
-
-/*template<typename IntImpl>
-class Compare<ThreeN1Data<IntImpl>>
-{
-	typedef ThreeN1Data<IntImpl> TNV;
-public:
-	virtual bool eq(const TNV& a, const TNV& b) const { return a.steps == b.steps && a.maxvalue == b.maxvalue; };
-	virtual bool lt(const TNV& a, const TNV& b) const { return a.steps < b.steps && a.maxvalue < b.maxvalue; };
-	virtual bool mt(const TNV& a, const TNV& b) const { return a.steps > b.steps && a.maxvalue > b.maxvalue; };
-	virtual ~Compare() {};
+	IntImpl num1;
+	uint64_t num1steps;
+	IntImpl num2;
+	IntImpl num2maxvalue;
+	uint64_t sumsteps; // sumsteps is not going to exceed uint64_t because max range we are able to calculate is ~10^12 * avg_steps = 10^15. it still less than uint64_t
+	uint64_t numcount; // =range
+	long long calctime;
 };
-
-*/
 
 
 template<typename IntImpl>
@@ -87,19 +77,22 @@ class IThreeN1
 public:
 	static const uint64_t MAX_STEPS = 2000; // max number of steps for one number
 	using DataType = IntImpl;
+	using StatDataType = StatData<DataType>;
 	using CalcDataType = ThreeN1Data<IntImpl>;
-	using CacheType = THArray<CalcDataType>;
-
+	using CacheItemType = ThreeN1Data<uint64_t>;
+	using CacheType = THArray<CacheItemType>; // cache is always uintt64_t
 protected:
 	//bool checkInCache(const IntImpl& curr, CalcDataType& calcResult);
 	virtual void calc3p1Cache(const IntImpl& number, CalcDataType& calcResult) = 0;
+	virtual void calc3p1CacheUpdate(const IntImpl& number, CalcDataType& calcResult) = 0;
 	void rangeDataToFile(const std::string& fileName);
-
+	std::string getCacheFileName(const std::string& ext){ return std::format("ThreeN1 cache - {:L}-{:L}{}", m_cacheStart, m_cacheFinish, ext);}
+	virtual void printCalcResults(StatDataType& stat);
 public:
 	THArraySorted<RangeData<IntImpl>> m_rangeData;
 	CacheType m_valuesCache;
-	IntImpl m_cacheStart;   // this is range of cached values pre-loaded from file
-	IntImpl m_cacheFinish;
+	uint64_t m_cacheStart{};  // this is range of cached values pre-loaded from file
+	uint64_t m_cacheFinish{};
 
 	uint64_t m_hits = 0;
 	std::mutex m_rangeMutex;
@@ -108,16 +101,14 @@ public:
 	virtual void Calc3p1(const IntImpl& number, CalcDataType& calcResult) = 0;
 	virtual void Calc3p1(const IntImpl& number, std::vector<IntImpl>& chain, uint64_t& steps, IntImpl& maxNum) const = 0;
 	virtual void Calc3p1Range(const IntImpl& start, const IntImpl& finish) = 0;
-	virtual void Calc3p1RangeCache(const IntImpl& start, const IntImpl& finish) = 0;
+	virtual void Calc3p1RangeCacheUpdate(const IntImpl& start, const IntImpl& finish) = 0;
 
 	void Calc3p1allThreads(const IntImpl& start, const IntImpl& finish, uint64_t threadsCnt);
 	
-	void CacheToFileVarLen(const IntImpl& start, const std::string& fileName);
-	void CacheToFileBin(const IntImpl& start, const std::string& fileName);
-	void CacheFromFileVarLen(const std::string& fileName);
-	void CacheFromFileVarLen2(const std::string& fileName, int64_t itemsToRead = -1);
-	void CacheFromFileBin(const std::string& fileName);
-
+	void SaveCacheToFileVarLen();
+	void LoadCacheFromFileVarLen2(const std::string& fileName, int64_t itemsToRead = -1);
+	void LoadCacheFromFileBin(const std::string& fileName);
+	void LoadCacheFromFileVarLen(const std::string& fileName);
 	void addRangeData(RangeData<IntImpl> data)
 	{
 		std::lock_guard<std::mutex> lock(m_rangeMutex);
@@ -133,28 +124,37 @@ public:
 class ThreeN1Int64: public IThreeN1<uint64_t>
 {
 public:
-	using CalcDataType64 = ThreeN1Data<uint64_t>;
+	//using IThreeN1<uint64_t>::StatDataType;
+	using CalcDataType64 = ThreeN1Data<DataType>;
 	const uint64_t OVERFLOW_LIMIT = std::numeric_limits<uint64_t>::max() / 3;
 protected:
 	void calc3p1Cache(const uint64_t& number, CalcDataType64& calcResult) override;
+	void calc3p1CacheUpdate(const uint64_t& number, CalcDataType64& calcResult) override;
+	//void printCalcResults(StatDataType& stat) override;
 public:
 	void Calc3p1(const uint64_t& number, CalcDataType64& calcResult) override;
-	void Calc3p1(const uint64_t& number, std::vector<uint64_t>& chain, uint64_t& steps, uint64_t& maxNum) const override;
+	void Calc3p1(const uint64_t& number, std::vector<DataType>& chain, uint64_t& steps, uint64_t& maxNum) const override;
 	void Calc3p1Range(const uint64_t& start, const uint64_t& finish) override;
-	void Calc3p1RangeCache(const uint64_t& start, const uint64_t& finish) override;
+	void Calc3p1RangeCacheUpdate(const uint64_t& start, const uint64_t& finish) override;
+
+	void SaveCacheToFileBin();
+
 };
 
 class ThreeN1BigInt : public IThreeN1<BigInt>
 {
 public:
+	//using IThreeN1<BigInt>::StatDataType;
 	using CalcDataTypeBigInt = ThreeN1Data<BigInt>;
 protected:
 	void calc3p1Cache(const BigInt& number, CalcDataTypeBigInt& calcResult) override;
+	void calc3p1CacheUpdate(const BigInt& number, CalcDataTypeBigInt& calcResult) override;
+	//void printCalcResults(StatDataType& stat) override;
 public:
 	void Calc3p1(const BigInt& number, CalcDataTypeBigInt& calcResult) override;
 	void Calc3p1(const BigInt& number, std::vector<BigInt>& chain, uint64_t& steps, BigInt& maxNum) const override;
 	void Calc3p1Range(const BigInt& start, const BigInt& finish) override;
-	void Calc3p1RangeCache(const BigInt& start, const BigInt& finish) override;
+	void Calc3p1RangeCacheUpdate(const BigInt& start, const BigInt& finish) override;
 };
 
 using TTMathBigInt = ttmath::UInt<10>;
@@ -168,7 +168,7 @@ public:
 	void Calc3p1(const TTMathBigInt& number, CalcDataTypeTTMath& calcResult) override;
 	void Calc3p1(const TTMathBigInt& number, std::vector<TTMathBigInt>& chain, uint64_t& steps, TTMathBigInt& maxNum) const override;
 	void Calc3p1Range(const TTMathBigInt& start, const TTMathBigInt& finish) override;
-	void Calc3p1RangeCache(const TTMathBigInt& start, const TTMathBigInt& finish) override;
+	void Calc3p1RangeCacheUpdate(const TTMathBigInt& start, const TTMathBigInt& finish) override;
 };
 
 
@@ -360,63 +360,231 @@ void IThreeN1<IntImpl>::Calc3p1allThreads(const IntImpl& start, const IntImpl& f
 }
 
 template<typename IntImpl>
-void IThreeN1<IntImpl>::CacheToFileBin(const IntImpl& start, const std::string& fileName)
+void IThreeN1<IntImpl>::printCalcResults(StatDataType& stat)
 {
+	std::cout << std::format("{:<{}}: {}", "Calculation time", F_WIDTH, MillisecToStr(stat.calctime)) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} for number {:L}", "Max Steps", F_WIDTH, stat.num1steps, stat.num1) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} for number {:L}", "Max Value", F_WIDTH, stat.num2maxvalue, stat.num2) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Total Steps", F_WIDTH, stat.sumsteps) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} steps", "Average Steps", F_WIDTH, stat.sumsteps / stat.numcount) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} numbers per sec", "Average Speed", F_WIDTH, stat.numcount * 1000 / stat.calctime) << std::endl;
+
+	if (m_unused.BitsCount() > 0)
+	{
+		const uint32_t SHOW_FIRST_UNUSED = 30;
+		uint32_t unused = 0;
+		uint32_t numOfFirst = SHOW_FIRST_UNUSED;
+		std::string str;
+		for (size_t i = 1; i < m_unused.BitsCount(); i++) // bypass 0 number, it is never touched 
+		{
+			if (m_unused.get(i) == false)
+			{
+				if (numOfFirst > 0)
+				{
+					str = str + "," + std::to_string(i);
+					numOfFirst--;
+				}
+				unused++;
+			}
+		}
+
+		std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Unused numbers total", F_WIDTH, unused) << std::endl;
+		std::cout << std::format("{:<{}}: {}", std::format(ThreeN1::Locale, "Unused numbers (first {:L})", SHOW_FIRST_UNUSED), F_WIDTH, str) << std::endl;
+	}
+
+	//if (std::is_same<IntImpl, uint64_t>::value)
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "MAXULONGLONG", F_WIDTH, std::numeric_limits<uint64_t>::max()/* ULLONG_MAX*/) << std::endl;
+}
+
+
+
+template<typename IntImpl>
+void IThreeN1<IntImpl>::LoadCacheFromFileVarLen(const std::string& fileName)
+{
+	std::ifstream f;
+	f.open(fileName, std::ios::in | std::ios::binary);
+	if (f.fail())
+		throw std::invalid_argument("Error: cannot open file '" + fileName + "'\n");
+
+	uint64_t start, cnt;
+	uint8_t buf[9];
+
+	size_t maxSize = VarLenReadBuf(f, buf);
+	size_t res = var_len_decode(buf, maxSize, &start);
+	assert(res > 0);
+	m_cacheStart = start;
+
+	maxSize = VarLenReadBuf(f, buf);
+	res = var_len_decode(buf, maxSize, &cnt);
+	assert(res > 0);
+	m_cacheFinish = start + cnt;
+
+	m_valuesCache.SetCapacity((uint)(cnt));
+	CalcDataType val;	
+	while (true)
+	{
+		maxSize = VarLenReadBuf(f, buf);
+		if (f.eof()) break;
+
+		uint64_t tmp;
+		res = var_len_decode(buf, maxSize, &tmp);
+		assert(res > 0);
+		assert(tmp < STEPS_MAX);
+		val.steps = (uint16_t)tmp;
+
+		maxSize = VarLenReadBuf(f, buf);
+		if (f.eof()) break;
+
+		res = var_len_decode(buf, maxSize, &tmp);
+		assert(res > 0);
+		assert(tmp >= start);
+		val.maxvalue = tmp;
+
+		m_valuesCache.AddValue(val);
+
+		cnt--;
+	}
+
+	assert(cnt == 0);
+
+	f.close();
+}
+
+// optimised version of LoadCacheFromFileVarLen
+// it loads data by big chunks and then works with data in memory
+template<typename IntImpl>
+void IThreeN1<IntImpl>::LoadCacheFromFileVarLen2(const std::string& fileName, int64_t itemsToRead)
+{
+	std::ifstream f;
+	f.open(fileName, std::ios::out | std::ios::binary);
+	if (f.fail())
+		throw std::invalid_argument("Error: cannot open file '" + fileName + "'\n");
+
+	const uint64_t BUF_LEN = 100'000'000; // read file by 100M blocks
+	uint8_t* buf = new uint8_t[BUF_LEN];
+
+	uint64_t start, cnt = 0;
+
+	size_t maxSize = VarLenReadBuf(f, buf); // read one number
+	size_t res = var_len_decode(buf, maxSize, &start);
+	assert(res > 0);
+	m_cacheStart = start;
+
+	maxSize = VarLenReadBuf(f, buf); // read one number
+	res = var_len_decode(buf, maxSize, &cnt);
+	assert(res > 0);
+
+	// reading up to itemsToRead items from cache file
+	if (itemsToRead != -1) cnt = std::min(cnt, (uint64_t)itemsToRead);
+	m_cacheFinish = m_cacheStart + cnt;
+
+	m_valuesCache.Clear();
+	m_valuesCache.SetCapacity((uint)cnt);
+	
+	if (cnt == 0ull) return;
+
+	CacheItemType val;
+	size_t offset = 0;
+	size_t actualBufSize = BUF_LEN;
+
+	f.read((char*)buf, BUF_LEN);
+
+	while (true)
+	{
+		if ((offset > actualBufSize - 9) && !f.eof())
+		{
+			size_t remainde = actualBufSize - offset;
+			memcpy(buf, buf + offset, remainde); // move remainding bytes into beginning of the buffer
+			f.read((char*)(buf + remainde), BUF_LEN - remainde);
+			actualBufSize = f.gcount() + remainde; // real number of bytes read
+			offset = 0;
+		}
+
+		uint64_t tmp;
+		res = var_len_decode(buf + offset, 9, &tmp);
+		assert(res > 0);
+		assert(tmp < STEPS_MAX);
+		val.steps = (uint16_t)tmp;
+		offset += res;
+
+		res = var_len_decode(buf + offset, 9, &tmp);
+		assert(res > 0);
+		assert(tmp >= start);
+		val.maxvalue = tmp;
+
+		offset += res;
+
+		m_valuesCache.AddValue(val);
+
+		cnt--;
+		if (cnt == 0ull) break;
+		if (f.eof() && (offset >= actualBufSize)) break;
+	}
+
+	delete[] buf;
+
+	assert(cnt == 0ull);
+
+	f.close();
+}
+
+
+/*
+template<typename IntImpl>
+void IThreeN1<IntImpl>::SaveCacheToFileBin()
+{
+	auto fileName = getCacheFileName(".bin");
+
 	std::ofstream f;
 	f.open(fileName, std::ios::out | std::ios::binary);
 	if (f.fail())
-	{
-		//cout << "Cannot open file '" << fileTo << "' for writing, exiting." << endl;
 		throw std::invalid_argument("Error: cannot open file '" + fileName + "'\n");
-	}
 
-	f << start;
-	//f.write((const char*)&start, sizeof(start));  // saving start number, all subsequent numbers will be get by +1 to start
-	IntImpl cnt = (IntImpl)m_valuesCache.Count();
+	f << m_cacheStart; 
+
+	// cnt has IntImpl type intentionally. needed to save to file the same way as m_cacheStart 
+	IntImpl cnt = m_valuesCache.Count();
 	f << cnt;
-	//f.write((const char*)&cnt, sizeof(cnt));  // saving expected number of items in a file
+	//f.write((char*)&cnt, sizeof(cnt));  // saving expected number of items in a file
 
-	for (uint64_t i = 0; i < cnt; ++i)
+	for (uint32_t i = 0; i < m_valuesCache.Count(); ++i)
 	{
 		CalcDataType& val = m_valuesCache[i];
-		assert(val.steps < 65536);
+		assert(val.steps < STEPS_MAX);
 		f << val;
-		//f.write((char*)&val, sizeof(val));
 	}
 
 	f.flush();
 	f.close();
 }
+*/
 
+//TODO rewrite this function to uint64_t
 template<typename IntImpl>
-void IThreeN1<IntImpl>::CacheFromFileBin(const std::string& fileName)
+void IThreeN1<IntImpl>::LoadCacheFromFileBin(const std::string& fileName)
 {
 	std::ifstream f;
-	f.open(fileName, std::ios::out | std::ios::binary);
+	f.open(fileName, std::ios::in | std::ios::binary);
 	if (f.fail())
-	{
-		//cout << "Cannot open file '" << fileTo << "' for writing, exiting." << endl;
 		throw std::invalid_argument("Error: cannot open file '" + fileName + "'\n");
-	}
 
-	IntImpl start, cnt;
+	IntImpl start, cnt; // cnt has IntImpl type intentionally
+	//uint8_t sz;
 	f >> start;
 	f >> cnt;
-	//f.read(&start, sizeof(IntImpl));
-	//f.read(&cnt, sizeof(IntImpl));
 
-	m_valuesCache.SetCapacity((uint32_t)toULongLong(cnt)); //TODO performance degradation here!!! 
+	uint32_t cnt32 = (uint32_t)toUInt64(cnt);
+	m_valuesCache.SetCapacity(cnt32);
 	CalcDataType val;
 	while (true)
 	{
-		f >> val;
-		//f.read(&val, sizeof(CalcDataType));
+		f >> val; // CalcDataType has overloaded operator >>
 		m_valuesCache.AddValue(val);
-		cnt--;
+		cnt32--;
 		if (f.eof()) break; // if we've met EOF earlier than expected 
 	}
 
-	assert(cnt == 0ull);
+	assert(cnt32 == 0ull);
 
 	f.close();
 }
