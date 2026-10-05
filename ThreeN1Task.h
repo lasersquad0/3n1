@@ -13,6 +13,9 @@ template<typename IntImpl>
 class IThreeN1;
 
 template<typename IntImpl>
+struct StatData;
+
+template<typename IntImpl>
 struct RangeData
 {
 	IntImpl start;
@@ -25,6 +28,19 @@ struct RangeData
 	IntImpl errnum;
 	enum MT::Task::TaskStatus status;
 };
+
+
+template<typename IntImpl>
+bool operator>(const struct RangeData<IntImpl>& a, const struct RangeData<IntImpl>& b)
+{
+	return a.start > b.start;
+}
+
+template<typename IntImpl>
+bool operator==(const struct RangeData<IntImpl>& a, const struct RangeData<IntImpl>& b)
+{
+	return a.start == b.start;
+}
 
 template<typename IntImpl>
 class ThreeN1Task : public MT::Task
