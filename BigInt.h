@@ -33,6 +33,7 @@ private:
     std::string digits;
 public:
     // constants for quick compare with common values
+    static const BigInt ZERO;
     static const BigInt ONE;
     static const BigInt TWO;
     static const BigInt THREE;
@@ -40,7 +41,7 @@ public:
 
     //Constructors:
     BigInt(unsigned long long nr = 0ull);
-    BigInt(std::string& s);
+    BigInt(const std::string& s);
     BigInt(const char* s);
     BigInt(const BigInt& a);
     
@@ -122,7 +123,10 @@ public:
     friend BigInt& operator^=(BigInt&, const BigInt&);
     friend BigInt operator^(BigInt&, const BigInt&);
 
-    //operator uint64_t() const { }
+    std::string ToString() const
+    {
+        return (std::string)*this;
+    }
 
     operator std::string() const 
     {
