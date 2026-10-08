@@ -5,7 +5,7 @@ MT::Task::Task(const std::string& _description)
 {
 	description = _description;
 	id = 0;
-	status = MT::Task::TaskStatus::awaiting;
+	status = TaskStatus::awaiting;
 	thread_pool = nullptr;
 }
 
@@ -17,7 +17,7 @@ void MT::Task::send_signal()
 void MT::Task::one_thread_pre_method() 
 {
 	one_thread_method();
-	status = MT::Task::TaskStatus::completed;
+	status = TaskStatus::completed;
 }
 
 
@@ -71,7 +71,7 @@ void MT::ThreadPool::run(MT::Thread* _thread)
 		if (run_allowed()) 
 		{
 			// a thread takes a task from the queue
-			auto elem = std::move(task_queue.front());
+			auto elem = task_queue.front(); //std::move(task_queue.front());
 			task_queue.pop();
 			lock.unlock();
 
@@ -88,7 +88,7 @@ void MT::ThreadPool::run(MT::Thread* _thread)
 			}
 			catch (...)
 			{
-				elem->status = MT::Task::TaskStatus::error;
+				elem->status = Task::TaskStatus::error;
 			}
 
 			if (logger_flag) 
