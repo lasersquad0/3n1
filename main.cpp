@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <numeric>
+#include <unordered_set>
 #include "DynamicArrays.h"
 #include "BigInt.h"
 #include "cli/CommandLine.h"
@@ -15,24 +16,7 @@
 #include "Utils.h"
 #include "ttmath/ttmath.h"
 
-#define DEFAULT_THREADS 1
-#define UNUSED_DEF_SIZE 1'000'000'000 // size of array in bits for tracking unused numbers
-#define APP_NAME "ThreeN1"
-#define APP_EXE_NAME APP_NAME ".exe"
-#define PERCENT_FACTOR 100
-#define CACHE_FILE_BIN "3-1G.bin"
-#define CACHE_FILE_BINVAR "3-1G.binvar"
 
-
-class Parameters
-{
-public:
-	static uint32_t THREADS;
-	static uint64_t UNUSED_SIZE;
-};
-
-uint32_t Parameters::THREADS = DEFAULT_THREADS;
-uint64_t Parameters::UNUSED_SIZE = UNUSED_DEF_SIZE;
 
 static void PrintUsage(COptionsList& options)
 {
@@ -46,6 +30,8 @@ static void PrintUsage(COptionsList& options)
 #define OPT_T _T("t")
 #define OPT_U _T("u")
 #define OPT_L _T("l")
+#define OPT_G _T("g")
+#define OPT_S _T("s")
 #define OPT_H _T("h")
 
 static void DefineOptions(COptionsList& options)
@@ -55,12 +41,12 @@ static void DefineOptions(COptionsList& options)
 	options.AddOption(cc);
 
 	COption rr;
-	rr.ShortName(OPT_R).LongName(_T("range")).Descr(_T("Define calculation range by specifying start and end values")).Required(false).RequiredArgs(2);
+	rr.ShortName(OPT_R).LongName(_T("range")).Descr(_T("Define calculation range by specifying start and end values of the range")).Required(false).RequiredArgs(2);
 	options.AddOption(rr);
 
-	COption ff;
-	ff.ShortName(OPT_F).LongName("from").Descr(_T("Define the calculation range by specifying start and length of the range")).RequiredArgs(2).Required(false);
-	options.AddOption(ff);
+	COption ss;
+	ss.ShortName(OPT_S).LongName("size").Descr(_T("Define the calculation range by specifying start and length of the range")).RequiredArgs(2).Required(false);
+	options.AddOption(ss);
 
 	COption nn;
 	nn.ShortName(OPT_N).LongName(_T("number")).Descr(_T("Caclcualte one number and show full the chain of 3n1 numbers till '1'")).Required(false).RequiredArgs(1);
@@ -74,18 +60,25 @@ static void DefineOptions(COptionsList& options)
 	uu.ShortName(OPT_U).LongName(_T("unused")).Descr(_T("Track unused numbers during calculations. Define range of unusued numbers. Range always starts from 0.")).Required(false).NumArgs(1).RequiredArgs(1);
 	options.AddOption(uu);
 
+	COption ff;
+	ff.ShortName(OPT_F).LongName(_T("cachefile")).Descr(_T("Specifies file name where cache will be saved. Valid only with options -c and -g. Otherwise ignored.")).Required(false).RequiredArgs(1);
+	options.AddOption(ff); 
+
 	options.AddOption(OPT_L, "long", _T("Force use long arithmetic. Long arithmetic will be used even for small numbers."), 0, false);
+	options.AddOption(OPT_G, "gen", _T("Valid only when option -c (cache) is specified. Causes cache to be generated and saved into file. Cache range is specified with -r option here."), 0, false);
+	
 	options.AddOption(OPT_H, _T("help"), _T("Show help"), 0);
 	
-	options.MutuallyExclusive(OPT_R, OPT_N, OPT_F); // cannot have any both (or all three) options -r, -f and -n together in one cmd line
+	options.MutuallyExclusive(OPT_R, OPT_N, OPT_S); // cannot have any both (or all three) options -r, -f and -n together in one cmd line
 }
 
 template<typename ThreeN1IntImpl>
 void ProcessOptionN(typename ThreeN1IntImpl::DataType number);
 
 template<typename ThreeN1IntImpl>
-void ProcessOptionR(typename ThreeN1IntImpl::DataType start, typename ThreeN1IntImpl::DataType finish, bool useCache);
+void ProcessOptionR(typename ThreeN1IntImpl::DataType start, typename ThreeN1IntImpl::DataType finish);
 
+//TODO shall we show error message if exception thrown in try..catch?
 #define SetParam(_) try { _; } catch (...) { /* nothing to do, because Parameters::XXXXX remains unchanged in case of exception */ }
 
 int _tmain(int argc, TCHAR* argv[])
@@ -121,76 +114,71 @@ int _tmain(int argc, TCHAR* argv[])
 
 	try
 	{
-		// one option either -r or -n must be in cmd line
-		if (!cmd.HasOption(OPT_N) && !cmd.HasOption(OPT_R) && !cmd.HasOption(OPT_F))
+		// one option -r, -n or -s must be in cmd line
+		if (!cmd.HasOption(OPT_N) && !cmd.HasOption(OPT_R) && !cmd.HasOption(OPT_S))
 		{
-			std::cout << "Error: One of these three options has to be in command line: -r, -f, -n." << std::endl;
+			std::cout << "Error: One of these three options has to be in command line: -r, -s, -n." << std::endl;
 			return 1;
 		}
 
-
 		if (cmd.HasOption(OPT_U)) // track unused ONLY when -u option is specified in cmd
 		{
-			SetParam(Parameters::UNUSED_SIZE = ParseNumber<uint64_t>(cmd.GetOptionValue(OPT_U))); // index=0 by default
+			Parameters::UNUSED_SIZE = ParseNumber<uint64_t>(cmd.GetOptionValue(OPT_U)); // index=0 by default
 			//auto unusedRange = std::min(Parameters::UNUSED_SIZE, toUInt64(finish));
 			//calc.TrackUnused(unusedRange);
 			//std::cout << std::format(ThreeN1::Locale, "{:<{}}: 1..{:L}", "Track unused (range)", F_WIDTH, unusedRange) << std::endl;
-		}
-		else
-		{
-			std::cout << std::format(ThreeN1::Locale, "{:<{}}: OFF", "Track unused", F_WIDTH) << std::endl;
 		}
 
 		if (cmd.HasOption(OPT_T))
 		{
 			SetParam(Parameters::THREADS = std::stoul(cmd.GetOptionValue(OPT_T))); // index=0 by default
 		}
+		
 
+		Parameters::CACHE_FILENAME     = cmd.GetOptionValue(OPT_F, 0, CACHE_FILE_VARLEN);
+		Parameters::HAS_CACHE_FILENAME = cmd.HasOption(OPT_F);
+		Parameters::USE_LONG_ARITHM    = cmd.HasOption(OPT_L);
+		Parameters::GENERATE_CACHE     = cmd.HasOption(OPT_G);
+		Parameters::USE_CACHE          = cmd.HasOption(OPT_C);
+		
 		if (cmd.HasOption(OPT_N))
 		{
 			std::cout << "Calculating chain for single number using Collatz rules." << std::endl << std::endl;
-
-			BigInt number = ParseNumber<BigInt>(cmd.GetOptionValue(OPT_N, 0)); // parses values like 1G, 100T, 200M, 150K together with 1'000'000, 100, 1234567890, etc.
+			//by default parse number as BigInt
+			BigInt number = ParseNumber<BigInt>(cmd.GetOptionValue(OPT_N, 0));
 			
 			if (number < BIGINT_THRESHOLD && !cmd.HasOption(OPT_L))
-			{
 				ProcessOptionN<ThreeN1Int64>(toUInt64(number));
-			}
 			else
-			{
 				ProcessOptionN<ThreeN1BigInt>(number);
-			}
 		}
 		else if (cmd.HasOption(OPT_R))
 		{
 			//by default parse range as BigInt
-			BigInt start = ParseNumber<BigInt>(cmd.GetOptionValue(OPT_R, 0)); // parses values like 1G, 100T, 200M, 150K together with 1'000'000, 100, 1234567890, etc.
+			BigInt start = ParseNumber<BigInt>(cmd.GetOptionValue(OPT_R, 0)); 
 			BigInt finish = ParseNumber<BigInt>(cmd.GetOptionValue(OPT_R, 1));
 
 			if (finish < BIGINT_THRESHOLD && !cmd.HasOption(OPT_L))
-			{
-				ProcessOptionR<ThreeN1Int64>(toUInt64(start), toUInt64(finish), cmd.HasOption(OPT_C));
-			}
+				ProcessOptionR<ThreeN1Int64>(toUInt64(start), toUInt64(finish));
 			else
-			{
-				ProcessOptionR<ThreeN1BigInt>(start, finish, cmd.HasOption(OPT_C));
-			}
+				ProcessOptionR<ThreeN1BigInt>(start, finish);
 		}
-		else if (cmd.HasOption(OPT_F))
+		else if (cmd.HasOption(OPT_S))
 		{
 			//by default parse range as BigInt
-			BigInt start = ParseNumber<BigInt>(cmd.GetOptionValue(OPT_F, 0));
-			BigInt length = ParseNumber<BigInt>(cmd.GetOptionValue(OPT_F, 1));
+			BigInt start = ParseNumber<BigInt>(cmd.GetOptionValue(OPT_S, 0));
+			BigInt length = ParseNumber<BigInt>(cmd.GetOptionValue(OPT_S, 1));
 			BigInt finish = start + length;
-
+			
 			if (finish < BIGINT_THRESHOLD && !cmd.HasOption(OPT_L))
-			{
-				ProcessOptionR<ThreeN1Int64>(toUInt64(start), toUInt64(finish), cmd.HasOption(OPT_C));
-			}
+				ProcessOptionR<ThreeN1Int64>(toUInt64(start), toUInt64(finish));
 			else
-			{
-				ProcessOptionR<ThreeN1BigInt>(start, finish, cmd.HasOption(OPT_C));
-			}
+				//ProcessOptionR<ThreeN1BigInt>(start, finish);
+				ProcessOptionR<ThreeN1TTMath>((std::string)start, (std::string)finish);
+		}
+		else
+		{
+			throw std::exception("There is no required option specified.");
 		}
 
 		std::cout << std::format("{:<{}}: {}", "Total time spent", F_WIDTH, MillisecToStr(Ticks::Finish("totaltime"))) << std::endl;
@@ -250,10 +238,11 @@ void ProcessOptionN(typename ThreeN1IntImpl::DataType number)
 }
 
 template<typename ThreeN1IntImpl>
-void ProcessOptionR(typename ThreeN1IntImpl::DataType start, typename ThreeN1IntImpl::DataType finish, bool useCache)
+void ProcessOptionR(typename ThreeN1IntImpl::DataType start, typename ThreeN1IntImpl::DataType finish)
 {
 	using IntImpl = typename ThreeN1IntImpl::DataType;
-	static_assert(std::is_same<IntImpl, uint64_t>::value || std::is_same<IntImpl, BigInt>::value);
+	using CacheItemType = typename ThreeN1IntImpl::CacheItemType;
+	static_assert(std::is_same<IntImpl, uint64_t>::value || std::is_same<IntImpl, BigInt>::value || std::is_same<IntImpl, TTMathBigInt>::value);
 
 	ThreeN1IntImpl calc;
 
@@ -264,13 +253,20 @@ void ProcessOptionR(typename ThreeN1IntImpl::DataType start, typename ThreeN1Int
 		finish = tmp;
 	}
 
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} - {:L}", "Calculation Range", F_WIDTH, start, finish) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Count of numbers", F_WIDTH, finish - start) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {} - {}", "Calculation Range", F_WIDTH, ReduceNumber(start), ReduceNumber(finish)) << std::endl;
+	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {}", "Count of numbers", F_WIDTH, ReduceNumber(finish - start)) << std::endl;
 	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Threads", F_WIDTH, Parameters::THREADS) << std::endl;
 	if constexpr (std::is_same_v<IntImpl, BigInt>)
-		std::cout << std::format(ThreeN1::Locale, "{:<{}}: {} (much slower then 64bit arithmetic, use it only when numbers exceed 64bit max value)", "Use long arithmetic", F_WIDTH, "YES") << std::endl;
+		std::cout << std::format("{:<{}}: {} (much slower then 64bit arithmetic, use it only when numbers exceed 64bit max value)", "Use long arithmetic", F_WIDTH, "YES") << std::endl;
 	if constexpr (std::is_same_v<IntImpl, uint64_t>)
-		std::cout << std::format(ThreeN1::Locale, "{:<{}}: {} (the fastest one, use it only for numbers less than ~18*10^18", "Use 64bit arithmetic", F_WIDTH, "YES") << std::endl;
+		std::cout << std::format("{:<{}}: {} (the fastest one, use it only for numbers less than ~18*10^18)", "Use 64bit arithmetic", F_WIDTH, "YES") << std::endl;
+	std::cout << std::format("{:<{}}: {}", "Track unused", F_WIDTH, Parameters::UNUSED_SIZE == UNUSED_DEF_SIZE?"NO":"YES") << std::endl;
+	std::cout << std::format("{:<{}}: {}", "Use Cache", F_WIDTH, Parameters::USE_CACHE?"YES":"NO") << std::endl;
+	if (Parameters::USE_CACHE)
+	{
+		std::cout << std::format("{:<{}}: {}", "Generate Cache File", F_WIDTH, Parameters::GENERATE_CACHE?"YES (you can define your own cache file name using option -f)":"NO") << std::endl;
+		std::cout << std::format("{:<{}}:'{}'", "Cache File", F_WIDTH, ThreeN1::GetCacheFileName(start, finish, VARLEN_EXT)) << std::endl;
+	}
 
 	// exclude 0 and 1 from calc
 	if (start < 2) start = 2;
@@ -278,66 +274,80 @@ void ProcessOptionR(typename ThreeN1IntImpl::DataType start, typename ThreeN1Int
 
 	if (Parameters::THREADS > 1)
 	{
-		if (useCache)
+		if (Parameters::USE_CACHE)
 		{
-			//NOTE!!! Calculations in threads do NOT use CACHE at the moment
-			std::cout << std::format("{:<{}}: {}", "Use Cache", F_WIDTH, "YES") << std::endl;
+			Ticks::Start("loading cache file");
+			std::cout << "Loading cache data...";
+
+			calc.LoadCacheFromFileVarLen(Parameters::CACHE_FILENAME);
+
+			std::cout << "\r";
+
+			std::cout << std::format("{:<{}}: {} numbers", "Loaded Cache Size", F_WIDTH, ReduceNumber((uint64_t)calc.m_valuesCache.Count())) << std::endl;
+			std::cout << std::format("{:<{}}: {}", "Loading Cache Time", F_WIDTH, MillisecToStr(Ticks::Finish("loading cache file"))) << std::endl;
+
 			calc.Calc3p1allThreads(start, finish, Parameters::THREADS);
 		}
 		else
 		{
-			std::cout << std::format("{:<{}}: {}", "Use Cache", F_WIDTH, "NO") << std::endl;
 			calc.Calc3p1allThreads(start, finish, Parameters::THREADS);
 		}
 	}
 	else //threads=1
 	{
-		if (useCache)
-		{
-			std::cout << std::format("{:<{}}: {}", "Use Cache", F_WIDTH, "YES") << std::endl;
-
-			Ticks::Start("loading cache file");
-			std::cout << "Loading cache data...";
-
-			calc.LoadCacheFromFileVarLen2("ThreeN1 cache - 300000000-600000000.diffvar");//(CACHE_FILE_BIN);
-
-			std::cout << "\r";
-
-			//auto stop = std::chrono::high_resolution_clock::now();
-			std::cout << std::format("{:<{}}: {:L}", "Loaded cache count", F_WIDTH, calc.m_valuesCache.Count()) << std::endl;
-			std::cout << std::format("{:<{}}: {}", "Loading cache time", F_WIDTH, MillisecToStr(Ticks::Finish("loading cache file"))) << std::endl;
-
-			//calc.Calc3p1RangeCacheUpdate(start, finish);
-
-			std::cout << "Verifying cache...";
-			//std::string emptyNums;
-			uint64_t emptyCount = 0;
-			for (uint32_t v = 0; v < calc.m_valuesCache.Count(); v++)
+		if (Parameters::USE_CACHE)
+		{		
+			if (Parameters::GENERATE_CACHE)
 			{
-				if (calc.m_valuesCache[v].steps == 0) emptyCount++;
-				//emptyNums.append(v).append(",");
+				calc.Calc3p1RangeCacheUpdate(start, finish);
+				
+				std::cout << "Verifying generated cache...";
+				uint64_t emptyCount = 0;
 
+				//std::unordered_set<uint64_t> unique;
+
+				for (uint32_t v = 0; v < calc.m_valuesCache.Count(); v++)
+				{
+					auto& val = calc.m_valuesCache[v];
+					//unique.insert(val.maxvalue);
+					if (val.steps == 0) emptyCount++;
+				}
+
+				assert(emptyCount == 0);
+				auto filled = calc.m_valuesCache.Count() - emptyCount;
+
+				std::cout << "\r" << std::format(ThreeN1::Locale, "{:<{}}: {}% ({:L})", "Cache fullness", F_WIDTH, filled * 100 / calc.m_valuesCache.Count(), filled) << std::endl;
+
+				//auto count = std::count_if(calc.m_valuesCache.begin(), calc.m_valuesCache.end(), [&calc](CacheItemType& v) { return v.maxvalue < calc.m_cacheFinish; });
+				//std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Unique nums", F_WIDTH, unique.size()) << std::endl;
+
+
+				Ticks::Start("save file");
+
+				std::cout << "Saving cache file...";
+				//calc.SaveCacheToFileBin(ThreeN1::GetCacheFileName(start, finish, BIN_EXT));
+				calc.SaveCacheToFileVarLen(ThreeN1::GetCacheFileName(start, finish, VARLEN_EXT));
+
+				std::cout << "\r" << std::format("{:<{}}: {}", "Time spent for file saving", F_WIDTH, MillisecToStr(Ticks::Finish("save file"))) << std::endl;
 			}
-			std::cout << "\r" << std::format(ThreeN1::Locale, "{:<{}}: {:L} ({}%)", "Empty numbers in cache", F_WIDTH, emptyCount, emptyCount * 100 / calc.m_valuesCache.Count()) << std::endl;
-
-			//save cache data only for uint64_t specialization
-			if constexpr (std::is_same_v<IntImpl, uint64_t>)
+			else
 			{
-				//Ticks::Start("save file");
+				Ticks::Start("loading cache file");
+				std::cout << "Loading cache data...";
 
-				//std::cout << "Saving cache file...";
-				//calc.SaveCacheToFileBin();
-				//calc.SaveCacheToFileVarLen();
+				calc.LoadCacheFromFileVarLen(Parameters::CACHE_FILENAME);
 
-				//std::cout << "\r" << std::format("{:<{}}: {}", "Time spent for file saving", F_WIDTH, MillisecToStr(Ticks::Finish("save file"))) << std::endl;
+				std::cout << "\r";
+
+				std::cout << std::format("{:<{}}: {} numbers", "Loaded Cache Size", F_WIDTH, ReduceNumber((uint64_t)calc.m_valuesCache.Count())) << std::endl;
+				std::cout << std::format("{:<{}}: {}", "Loading Cache Time", F_WIDTH, MillisecToStr(Ticks::Finish("loading cache file"))) << std::endl;
+
+				calc.Calc3p1RangeCache(start, finish);
 			}
 		}
-		else // here goes option -r which is mandatory
+		else // -r without cache option
 		{
-			std::cout << std::format("{:<{}}: {}", "Use Cache", F_WIDTH, "NO") << std::endl << std::endl;
 			calc.Calc3p1Range(start, finish);
 		}
 	}
-
-
 }
