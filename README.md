@@ -1,5 +1,6 @@
 # ThreeN1 -  Collatz conjecture computation
 
+## What is  Collatz conjecture
 The Collatz conjecture is one of the most famous unsolved problems in mathematics. 
 It concerns sequences of integers in which each term is obtained from the previous term as follows: 
 - if a term is even, the next term is one half of it. 
@@ -8,23 +9,24 @@ It concerns sequences of integers in which each term is obtained from the previo
 The conjecture is that these sequences always reach 1, no matter which positive integer is chosen to start the sequence. 
 No general proof has been found at the moment.
 
-ThreeN1 is a command line application that tries to prove this conjecture for any specific range of integer numbers.
-It applied Collats conjecture rules to each number till it reaches 1.
-Additionally it collects some statistics for each integer: number of steps to reach 1 and maximum number reached during calculation.
+## ThreeN1 application
+ThreeN1 is a command line application that tries to prove Collatz conjecture for any specific range of integer numbers.
+It applied conjecture rules to each number till it reaches 1.
+Additionally it collects the following statistics for each checked number: number of steps required to reach 1 and maximum number reached during calculation.
 
-#How to use TheeN1
+# How to use TheeN1
 
-Call ThreeN1.exe from command line and specify arguments that define range of numbers to check and other parameters that take effect on calculation time,
- e.g. number of threads, whether to use cache, and so on.
+Call ThreeN1.exe from command line and specify arguments that define range of numbers to check, number of threads, whether to use cache, and other parameters.
  
- Usage: ThreeN1.exe -command <arg1>...<argN>  -option <arg1> <arg2>
+`ThreeN1.exe -command <arg1>...<argN>  -option <arg1> <arg2>`
  
  Examples:
+ `
  ThreeN1.exe -r 100M 200M
  ThreeN1.exe -s 100G 100M -c
  ThreeN1.exe -n 123456789
  ThreeN1.exe -l -s 100Z 500M
- 
+ `
  ```
 -r, --range     <start> <end> Define calculation range by specifying start and end values of the range
 -s, --size      <start> <len> Define the calculation range by specifying start and length of the range
