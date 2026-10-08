@@ -3,57 +3,6 @@
 #include "ThreeN1.h"
 
 
-// еще оптимизация - держать кеш в диапазоне up/2....up. где up верхняя граница кеша.
-// держать кеш ниже чем up/2 нету смысла туда никогда не зайдем.
-// например диапазон 1G...2G 
-// Save cache only when IntImpl=uint64_t. 
-// other IntImpl implementation just must be able to read this file properly
-template<>
-void IThreeN1<uint64_t>::SaveCacheToFileVarLen()
-{
-    auto fileName = getCacheFileName(".diffvar");
-
-    std::ofstream f;
-    f.open(fileName, std::ios::out | std::ios::binary);
-    if (f.fail())
-        throw std::invalid_argument("Error: cannot open file '" + fileName + "'\n");
-
-    const uint64_t BUF_LEN = 100'000'000; // save by blocks of 100М size
-    uint8_t* buf = new uint8_t[BUF_LEN];
-
-    uint64_t offset = var_len_encode(buf, m_cacheStart);
-    f.write((const char*)buf, offset);  // saving start number, all subsequent numbers will be get by +1 to start
-
-    offset = var_len_encode(buf, m_valuesCache.Count());
-    f.write((const char*)buf, offset);  // saving  number of items in cache 
-
-    offset = 0;
-    for (uint i = 0; i < m_valuesCache.Count(); ++i)
-    {
-        CalcDataType val = m_valuesCache[i];
-        assert(val.steps < STEPS_MAX);
-        offset += var_len_encode(buf + offset, (uint64_t)val.steps);
-        offset += var_len_encode(buf + offset, val.maxvalue);
-
-        if (offset > BUF_LEN - 8)
-        {
-            f.write((char*)buf, offset);
-            offset = 0;
-        }
-    }
-
-    f.write((char*)buf, offset);
-
-    delete[] buf;
-
-    f.flush();
-    f.close();
-}
-
-
-
-
-
 
 //template<typename IntImpl>
 //std::mutex ThreeN1Task<IntImpl>::m_cacheLock;
