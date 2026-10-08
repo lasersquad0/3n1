@@ -36,10 +36,6 @@ static void PrintUsage(COptionsList& options)
 
 static void DefineOptions(COptionsList& options)
 {
-	COption cc;
-	cc.ShortName(OPT_C).LongName(_T("cache")).Descr(_T("Use cache during calculations")).Required(false).NumArgs(0);
-	options.AddOption(cc);
-
 	COption rr;
 	rr.ShortName(OPT_R).LongName(_T("range")).Descr(_T("Define calculation range by specifying start and end values of the range")).Required(false).RequiredArgs(2);
 	options.AddOption(rr);
@@ -49,25 +45,29 @@ static void DefineOptions(COptionsList& options)
 	options.AddOption(ss);
 
 	COption nn;
-	nn.ShortName(OPT_N).LongName(_T("number")).Descr(_T("Caclcualte one number and show full the chain of 3n1 numbers till '1'")).Required(false).RequiredArgs(1);
+	nn.ShortName(OPT_N).LongName(_T("number")).Descr(_T("Calculate one number and show full chain of 3n1 numbers till 1 reached")).Required(false).RequiredArgs(1);
 	options.AddOption(nn);
 
 	COption tt;
-	tt.ShortName(OPT_T).LongName(_T("threads")).Descr(_T("Calculate with specified number of threads")).Required(false).NumArgs(1).RequiredArgs(1);
+	tt.ShortName(OPT_T).LongName(_T("threads")).Descr(_T("Use specified number of threads for calculations (faster)")).Required(false).NumArgs(1).RequiredArgs(1);
 	options.AddOption(tt);
+	
+	COption cc;
+	cc.ShortName(OPT_C).LongName(_T("cache")).Descr(_T("Use cache during calculations (cache is loaded from a file)")).Required(false).NumArgs(0);
+	options.AddOption(cc);
 
 	COption uu;
-	uu.ShortName(OPT_U).LongName(_T("unused")).Descr(_T("Track unused numbers during calculations. Define range of unusued numbers. Range always starts from 0.")).Required(false).NumArgs(1).RequiredArgs(1);
+	uu.ShortName(OPT_U).LongName(_T("unused")).Descr(_T("Track unused numbers during calculations. Define range of unusued numbers. Range always starts from 0")).Required(false).NumArgs(1).RequiredArgs(1);
 	options.AddOption(uu);
 
 	COption ff;
-	ff.ShortName(OPT_F).LongName(_T("cachefile")).Descr(_T("Specifies file name where cache will be saved. Valid only with options -c and -g. Otherwise ignored.")).Required(false).RequiredArgs(1);
+	ff.ShortName(OPT_F).LongName(_T("cachefile")).Descr(_T("Specify cache file name. Valid only with options -c and -g. Otherwise ignored")).Required(false).RequiredArgs(1);
 	options.AddOption(ff); 
 
-	options.AddOption(OPT_L, "long", _T("Force use long arithmetic. Long arithmetic will be used even for small numbers."), 0, false);
-	options.AddOption(OPT_G, "gen", _T("Valid only when option -c (cache) is specified. Causes cache to be generated and saved into file. Cache range is specified with -r option here."), 0, false);
+	options.AddOption(OPT_L, "long", _T("Force using long arithmetic. If -l is specified tong arithmetic will be used even for small numbers\nBy default 64bit integer arithmetic is used for numbers less than MAX_UINT64/3"), 0, false);
+	options.AddOption(OPT_G, "gen", _T("Fill cache during calculation and save it into file. Valid only when option -c is specified\nCache range is not equal to the range specified by - r, but based on it."), 0, false);
 	
-	options.AddOption(OPT_H, _T("help"), _T("Show help"), 0);
+	options.AddOption(OPT_H, _T("help"), _T("Show this help"), 0);
 	
 	options.MutuallyExclusive(OPT_R, OPT_N, OPT_S); // cannot have any both (or all three) options -r, -f and -n together in one cmd line
 }
