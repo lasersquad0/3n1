@@ -56,15 +56,15 @@ Advantage of `-s` option is that you can easy specify huge value for range start
 For example `ThreeN1.exe -s 100P 100K`.
 For `-r` option the same range would look like this - `ThreeN1.exe -r 100P 100'000'000'100M`.
  
-To specify big values for range options you can use suffixes 'B', 'K', "M", "G", "T", "P", "E", "Z", "Y".
+To specify big values for range options you can use suffixes 'B', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'.
 
-"K" means that value will be multiplied by 1 000
+'K' means that value will be multiplied by 1'000
 
-"M" means that value will be multiplied by 1 000 000
+'M' means that value will be multiplied by 1'000'000
 
 and so on 
 
-"Y" means that value will be multiplied by 10^24.
+'Y' means that value will be multiplied by 10^24.
 
  
 Also it is possible to use symbol ''' (single quote) as thousands separator in arguments for `-r` and `-s` command line options.
@@ -75,7 +75,7 @@ ThreeN1.exe -s 1'000'000K 10'000
 ThreeN1.exe -r 100G 100'001M
 ```
  
-## Calculate single number.
+## Calculate single number
  
 You can calculate single number and see what values this number reaches and how many steps it requires to get to 1.
 Use command line option `-n` for that.
@@ -141,6 +141,8 @@ Long arithmetic does not have any limits and can calculate any number. The only 
 
 With option `-l` you can forcibly turn on long arithmetic for small numbers. For example to check how it works at all.
 
+
+## ThreeN1 output
 
 
 
