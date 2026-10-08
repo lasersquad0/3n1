@@ -39,12 +39,13 @@ uint64_t toUInt64(const BigInt& v)
 
 
 // constants for quick compare with common values
+const BigInt BigInt::ZERO(0ull);
 const BigInt BigInt::ONE(1);
 const BigInt BigInt::TWO(2);
 const BigInt BigInt::THREE(3);
 const BigInt BigInt::TEN(10);
 
-BigInt::BigInt(std::string& s)
+BigInt::BigInt(const std::string& s)
 {
     digits = "";
     int n = (int)s.size();
