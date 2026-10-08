@@ -2,6 +2,15 @@
 #include "Utils.h"
 
 
+uint32_t Parameters::THREADS = DEFAULT_THREADS;
+uint64_t Parameters::UNUSED_SIZE = UNUSED_DEF_SIZE;
+bool Parameters::USE_CACHE = false;
+bool Parameters::GENERATE_CACHE = false;
+bool Parameters::USE_LONG_ARITHM = false;
+bool Parameters::HAS_CACHE_FILENAME = false;
+std::string Parameters::CACHE_FILENAME = CACHE_FILE_VARLEN;
+
+
 uint64_t NumLen(uint64_t num)
 {
     uint64_t result = 1;
@@ -40,15 +49,36 @@ std::string RemoveApo(const std::string& str)
     return res;
 }
 
-
-
-
-/*uint64_t ParseNumber(std::string num)
+std::string ReduceNumber(uint64_t value, bool thouSep) 
 {
-    char FactorSym;
-    uint64_t FactorInt;
-    return ParseNumber<uint64_t>(num, FactorSym, FactorInt);
-}*/
+    if (value == 0) return "0";
+
+    static constexpr std::array<const char*, 9> suffixes = { "", "K", "M", "G", "T", "P", "E", "Z", "Y" };
+
+    static constexpr std::array<uint64_t, 7> powers = {
+    1ULL,                        // 10^0
+    1'000ULL,                    // 10^3  (K)
+    1'000'000ULL,                // 10^6  (M)
+    1'000'000'000ULL,            // 10^9  (G)
+    1'000'000'000'000ULL,        // 10^12 (T)
+    1'000'000'000'000'000ULL,    // 10^15 (P)
+    1'000'000'000'000'000'000ULL,// 10^18 (E)
+    };
+
+    // Find max group that divides the number without a remainder
+    for (size_t group = powers.size() - 1; group > 0; --group) 
+    {
+        if (value % powers[group] == 0)
+            if (thouSep)
+                return std::format(ThreeN1::Locale, "{:L}{}", value / powers[group], suffixes[group]);
+            else
+                return std::to_string(value / powers[group]) + suffixes[group];
+    }
+
+    // no group of zeros that is a multiple of 3.
+    return thouSep ? std::format(ThreeN1::Locale, "{:L}", value) : std::to_string(value);
+}
+
 
 size_t var_len_encode(uint8_t buf[9], uint64_t num)
 {
