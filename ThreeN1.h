@@ -92,7 +92,7 @@ public:
 	uint64_t m_cacheStart = 0;  // this is range of cached values pre-loaded from file
 	uint64_t m_cacheFinish = 0;
 
-	virtual void Calc3p1(const IntImpl& number, CalcDataType& calcResult) = 0;
+	virtual CalcDataType Calc3p1(const IntImpl& number) = 0;
 	virtual void Calc3p1(const IntImpl& number, std::vector<IntImpl>& chain, uint64_t& steps, IntImpl& maxNum) const = 0;
 	virtual void Calc3p1Cache(const IntImpl& number, CalcDataType& calcResult) = 0;
 	virtual void Calc3p1Range(const IntImpl& start, const IntImpl& finish) = 0;
@@ -125,7 +125,7 @@ public:
 protected:
 	void calc3p1CacheUpdate(const uint64_t& number, CalcDataType64& calcResult) override;
 public:
-	void Calc3p1(const uint64_t& number, CalcDataType64& calcResult) override;
+	CalcDataType64 Calc3p1(const uint64_t& number) override;
 	void Calc3p1(const uint64_t& number, std::vector<DataType>& chain, uint64_t& steps, uint64_t& maxNum) const override;
 	void Calc3p1Cache(const uint64_t& number, CalcDataType64& calcResult) override;
 	void Calc3p1Range(const uint64_t& start, const uint64_t& finish) override;
@@ -140,7 +140,7 @@ public:
 protected:
 	void calc3p1CacheUpdate(const BigInt& number, CalcDataTypeBigInt& calcResult) override;
 public:
-	void Calc3p1(const BigInt& number, CalcDataTypeBigInt& calcResult) override;
+	CalcDataTypeBigInt Calc3p1(const BigInt& number) override;
 	void Calc3p1(const BigInt& number, std::vector<BigInt>& chain, uint64_t& steps, BigInt& maxNum) const override;
 	void Calc3p1Cache(const BigInt& number, CalcDataTypeBigInt& calcResult) override;
 	void Calc3p1Range(const BigInt& start, const BigInt& finish) override;
@@ -155,7 +155,7 @@ public:
 protected:
 	void calc3p1CacheUpdate(const TTMathBigInt& number, CalcDataTypeTTMath& calcResult) override;
 public:
-	void Calc3p1(const TTMathBigInt& number, CalcDataTypeTTMath& calcResult) override;
+	CalcDataTypeTTMath Calc3p1(const TTMathBigInt& number) override;
 	void Calc3p1(const TTMathBigInt& number, std::vector<TTMathBigInt>& chain, uint64_t& steps, TTMathBigInt& maxNum) const override;
 	void Calc3p1Cache(const TTMathBigInt& number, CalcDataTypeTTMath& calcResult) override;
 	void Calc3p1Range(const TTMathBigInt& start, const TTMathBigInt& finish) override;
@@ -202,7 +202,7 @@ void IThreeN1<IntImpl>::Calc3p1allThreads(const IntImpl& start, const IntImpl& f
 	}
 
 	std::osyncstream syncout(std::cout);
-	syncout.imbue(ThreeN1::Locale);
+	syncout.imbue(ThreeN1::GetLoc());
 
 	IntImpl rangeCount = range / ONE_TASK_RANGE;
 	if(rangeCount > 1'000'000)
@@ -241,11 +241,11 @@ void IThreeN1<IntImpl>::Calc3p1allThreads(const IntImpl& start, const IntImpl& f
 			}
 
 			auto tasksInQueue = thread_pool.task_queue_size();
-			syncout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Tasks total", F_WIDTH, rangeCount) << std::endl;
-			syncout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Tasks finished", F_WIDTH, tasksCount - tasksInQueue) << std::endl;
-			syncout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Tasks in queue", F_WIDTH, tasksInQueue) << std::endl;
-			syncout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Tasks standby", F_WIDTH, standbyTasks.size()) << std::endl;
-			syncout << std::format(ThreeN1::Locale, "{:<{}}: {}",   "Time spent", F_WIDTH, MillisecToStr(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - cycleStart).count())) << std::endl;
+			syncout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L}", "Tasks total", F_WIDTH, rangeCount) << std::endl;
+			syncout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L}", "Tasks finished", F_WIDTH, tasksCount - tasksInQueue) << std::endl;
+			syncout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L}", "Tasks in queue", F_WIDTH, tasksInQueue) << std::endl;
+			syncout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L}", "Tasks standby", F_WIDTH, standbyTasks.size()) << std::endl;
+			syncout << std::format(ThreeN1::GetLoc(), "{:<{}}: {}",   "Time spent", F_WIDTH, MillisecToStr(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - cycleStart).count())) << std::endl;
 			syncout << std::endl;
 			syncout.emit();
 			cycleStart = std::chrono::high_resolution_clock::now();
@@ -288,12 +288,12 @@ void IThreeN1<IntImpl>::Calc3p1allThreads(const IntImpl& start, const IntImpl& f
 
 	IntImpl bigss = sumsteps; // to avoid compiler error when uint64_t divided by IntImpl
 	auto calcTime = Ticks::Finish("calctime"); 
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {}", "Calculation time", F_WIDTH, MillisecToStr(calcTime)) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} for number: {:L}", "Max Steps", F_WIDTH, maxsteps, snum) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} for number: {:L}", "Max Value", F_WIDTH, maxmaxv, vnum) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Total Steps", F_WIDTH, sumsteps) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} steps", "Average Steps", F_WIDTH,  bigss / range) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} num/sec", "Average Speed", F_WIDTH, range * 1000 / calcTime) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {}", "Calculation time", F_WIDTH, MillisecToStr(calcTime)) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L} for number: {:L}", "Max Steps", F_WIDTH, maxsteps, snum) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L} for number: {:L}", "Max Value", F_WIDTH, maxmaxv, vnum) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L}", "Total Steps", F_WIDTH, sumsteps) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L} steps", "Average Steps", F_WIDTH,  bigss / range) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L} num/sec", "Average Speed", F_WIDTH, range * 1000 / calcTime) << std::endl;
 
 	bool showErrMess = true;
 	for (auto& item : m_rangeData)
@@ -301,21 +301,21 @@ void IThreeN1<IntImpl>::Calc3p1allThreads(const IntImpl& start, const IntImpl& f
 		if (item.status != MT::Task::TaskStatus::completed)
 		{
 			if (showErrMess) std::cout << "There are tasks finished wiht a error" << std::endl, showErrMess = false;
-			std::cout << std::format(ThreeN1::Locale, "Number {:L} cannot be calculated, approriate task #{:L} has finished with error", item.errnum, item.taskid) << std::endl;
+			std::cout << std::format(ThreeN1::GetLoc(), "Number {:L} cannot be calculated, approriate task #{:L} has finished with error", item.errnum, item.taskid) << std::endl;
 		}
 	}
-	//std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "MAXULONGLONG", F_WIDTH, std::numeric_limits<uint64_t>::max()) << std::endl;
+	//std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L}", "MAXULONGLONG", F_WIDTH, std::numeric_limits<uint64_t>::max()) << std::endl;
 }
 
 template<typename IntImpl>
 void IThreeN1<IntImpl>::printCalcResults(StatDataType& stat)
 {
 	std::cout << std::format("{:<{}}: {}", "Calculation time", F_WIDTH, MillisecToStr(stat.calctime)) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} for number {:L}", "Max Steps", F_WIDTH, stat.num1steps, stat.num1) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} for number {:L}", "Max Value", F_WIDTH, stat.num2maxvalue, stat.num2) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Total Steps", F_WIDTH, stat.sumsteps) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} steps", "Average Steps", F_WIDTH, stat.sumsteps / stat.numcount) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} numbers per sec", "Average Speed", F_WIDTH, stat.numcount * 1000 / stat.calctime) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L} for number {:L}", "Max Steps", F_WIDTH, stat.num1steps, stat.num1) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L} for number {:L}", "Max Value", F_WIDTH, stat.num2maxvalue, stat.num2) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L}", "Total Steps", F_WIDTH, stat.sumsteps) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L} steps", "Average Steps", F_WIDTH, stat.sumsteps / stat.numcount) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L} numbers per sec", "Average Speed", F_WIDTH, stat.numcount * 1000 / stat.calctime) << std::endl;
 	
 	if (m_unused.BitsCount() > 0)
 	{
@@ -336,8 +336,8 @@ void IThreeN1<IntImpl>::printCalcResults(StatDataType& stat)
 			}
 		}
 
-		std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Unused numbers total", F_WIDTH, unused) << std::endl;
-		std::cout << std::format("{:<{}}: {}", std::format(ThreeN1::Locale, "Unused numbers (first {:L})", SHOW_FIRST_UNUSED), F_WIDTH, str) << std::endl;
+		std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L}", "Unused numbers total", F_WIDTH, unused) << std::endl;
+		std::cout << std::format("{:<{}}: {}", std::format(ThreeN1::GetLoc(), "Unused numbers (first {:L})", SHOW_FIRST_UNUSED), F_WIDTH, str) << std::endl;
 	}
 }
 
