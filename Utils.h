@@ -20,7 +20,7 @@ const uint32_t MAX_VALUE_WIDTH = 27;
 #define APP_NAME "ThreeN1"
 #define APP_EXE_NAME APP_NAME ".exe"
 //#define PERCENT_FACTOR 100
-#define CACHE_FILE_BIN "3-1G.bin"
+//#define CACHE_FILE_BIN "3-1G.bin"
 #define CACHE_FILE_VARLEN "ThreeN1 cache - 300M-600M.varlen"
 #define VARLEN_EXT ".varlen"
 #define BIN_EXT ".bin"
@@ -57,7 +57,14 @@ namespace ThreeN1
 		std::string do_grouping() const override { return "\3"; } // group by 3
 	};
 
-	inline std::locale Locale(std::cout.getloc(), new MyGroupSeparator());
+	// used in std::cout and in std::format
+	inline const std::locale& GetLoc()
+	{
+		static std::locale LLocale(std::cout.getloc(), new MyGroupSeparator());
+		return LLocale;
+	}
+
+	//inline std::locale Locale(std::cout.getloc(), new MyGroupSeparator());
 
 	inline CacheRange GetCacheRange(uint64_t start, uint64_t finish) { auto range = finish - start; return finish / 2 > range ? CacheRange{ finish / 2 - range, finish / 2 } : CacheRange{ 0, finish / 2 }; };
 	//TODO for BigInt we should make sure that cache is placed somewhere inside uint64_t range. Need another formular here
@@ -123,7 +130,7 @@ std::string ReduceNumber(IntImpl value, bool thouSep)
 
 	if (!thouSep) return digits + suffixes[group];
 
-	const auto& punct = std::use_facet<std::numpunct<char>>(ThreeN1::Locale);
+	const auto& punct = std::use_facet<std::numpunct<char>>(ThreeN1::GetLoc());
 	const char separator = punct.thousands_sep();
 	const std::string grouping = punct.grouping();
 
@@ -160,6 +167,15 @@ std::string ReduceNumber(IntImpl value, bool thouSep)
 
 		return result + suffixes[group];
 	}
+}
+
+[[nodiscard]]
+static inline uint64_t rdtsc(void) noexcept
+{
+	return __rdtsc();
+	//unsigned lo, hi;
+	//__asm __volatile("rdstc" : "=a"(lo), "=d"(hi));
+	//return ( (unsigned long long)lo | ( ((unsigned long long)(hi)) << 32) );
 }
 
 uint64_t NumLen(uint64_t num);
