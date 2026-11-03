@@ -51,7 +51,12 @@ bool CCommandLine::AddOption(COption* option)
     return true;
 }
 
-bool CCommandLine::HasOption(const cli_string &opt)
+COption* CCommandLine::GetOption(const cli_string& opt) const
+{
+    return ResolveOption(opt, m_Options);
+}
+
+bool CCommandLine::HasOption(const cli_string &opt) const
 {
     COption *option = ResolveOption(opt, m_Options);
     return option != nullptr;
