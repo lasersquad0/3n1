@@ -41,7 +41,7 @@ public:
      * @param argc Number of the program arguments.
      * @return true on success, false otherwise.
      */
-    bool Parse(COptionsList *options, CCommandLine *cmd, _TCHAR *argv[], int argc);
+    bool Parse(COptionsList *options, CCommandLine *cmd, cli_char *argv[], int argc);
 
     /**
      * @brief Parse the program command line arguments. An option stars with
