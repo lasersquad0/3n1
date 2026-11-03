@@ -10,26 +10,28 @@
 //
 // STDLib/OS includes
 //
+#include <algorithm>
+
 
 
 bool CDefaultParser::HandleToken(const cli_string &token)
 {
     if (token == DASH || token == DDASH)
     {
-        m_LastError = _T("No name specified for the option.");
+        m_LastError = _U("No name specified for the option.");
         return false;
     }
     else if (token.compare(0, 2, DDASH) == 0)
     {
         if (m_CommandLine->HasOption(token.substr(2, token.size())))
         {
-            m_LastError = _T("Duplicate option has been met: ") + token;
+            m_LastError = _U("Duplicate option has been met: ") + token;
             return false;
         }
 
         if (!HandleLongOption(token))
         {
-            m_LastError = _T("Unknown option has been met: ") + token;
+            m_LastError = _U("Unknown option has been met: ") + token;
             return false;
         }
     }
@@ -37,13 +39,13 @@ bool CDefaultParser::HandleToken(const cli_string &token)
     {
         if (m_CommandLine->HasOption(token.substr(1, token.size())))
         {
-            m_LastError = _T("Duplicate option has been met: ") + token;
+            m_LastError = _U("Duplicate option has been met: ") + token;
             return false;
         }
 
         if (!HandleShortOption(token))
         {
-            m_LastError = _T("Unknown option has been met: ") + token;
+            m_LastError = _U("Unknown option has been met: ") + token;
             return false;
         }
     }
@@ -56,13 +58,13 @@ bool CDefaultParser::HandleToken(const cli_string &token)
         }
         else
         {
-            m_LastError = _T("Too many arguments for option: ") + m_CurrentOption->GetNonEmptyName(true);
+            m_LastError = _U("Too many arguments for option: ") + m_CurrentOption->GetNonEmptyName(true);
             return false;
         }
     }
     else
     {
-        m_LastError = _T("Unknown argument in command line: ") + token;
+        m_LastError = _U("Unknown argument in command line: ") + token;
         return false;
         //TODO(Andrei): Handle unknown token
     }
@@ -154,16 +156,16 @@ bool CDefaultParser::CheckMissingRequiredArguments()
 
     if (m_ExpectedOptionWithArguments.empty()) return false;
 
-    m_LastError = _T("Missing arguments for option");
-    m_LastError.append(m_ExpectedOptionWithArguments.size() == 1 ? _T("") : _T("s"));
-    m_LastError.append(_T(": "));
+    m_LastError = _U("Missing arguments for option");
+    m_LastError.append(m_ExpectedOptionWithArguments.size() == 1 ? _U("") : _U("s"));
+    m_LastError.append(_U(": "));
 
     for (size_t i = 0; i < m_ExpectedOptionWithArguments.size(); ++i)
     {
         cli_string optName = m_ExpectedOptionWithArguments[i]->GetNonEmptyName(true);
 
         m_LastError.append(optName);
-        if (i + 1 < m_ExpectedOptionWithArguments.size()) m_LastError.append(_T(", "));
+        if (i + 1 < m_ExpectedOptionWithArguments.size()) m_LastError.append(_U(", "));
     }
 
     return true;
@@ -198,16 +200,16 @@ bool CDefaultParser::CheckMissingRequiredOptions()
 {
     if (m_ExpectedOption.empty()) return false;
 
-    m_LastError = _T("Missing required option");
-    m_LastError.append(m_ExpectedOption.size() == 1 ? _T("") : _T("s"));
-    m_LastError.append(_T(": "));
+    m_LastError = _U("Missing required option");
+    m_LastError.append(m_ExpectedOption.size() == 1 ? _U("") : _U("s"));
+    m_LastError.append(_U(": "));
 
     for (size_t i = 0; i < m_ExpectedOption.size(); ++i)
     {
         cli_string optName = m_ExpectedOption[i]->GetNonEmptyName(true);
 
         m_LastError.append(optName);
-        if (i + 1 < m_ExpectedOption.size()) m_LastError.append(_T(", "));
+        if (i + 1 < m_ExpectedOption.size()) m_LastError.append(_U(", "));
     }
 
     return true;
@@ -230,32 +232,32 @@ bool CDefaultParser::CheckMutuallyExclusive()
             auto iter = std::find_if(optList.begin(), optList.end(), [o](COption* a)->bool { return *o == *a;});
             if (iter != optList.end())
             {
-                if (!meList.empty()) meList += _T(",");
+                if (!meList.empty()) meList += _U(",");
                 meList += (*iter)->GetShortName();
             }
         }
 
         if (!meList.empty())
         {
-            auxStr.append(_T("("));
+            auxStr.append(_U("("));
             auxStr.append(opt->GetShortName());
-            auxStr.append(_T(" and "));
+            auxStr.append(_U(" and "));
             auxStr.append(meList);
-            auxStr.append(_T(") "));
+            auxStr.append(_U(") "));
         }
     }
 
     if (auxStr.empty()) return false;
 
-    m_LastError = _T("There are mutually exclusive options found: ") + auxStr;
+    m_LastError = _U("There are mutually exclusive options found: ") + auxStr;
 
     return true;
 }
 
-bool CDefaultParser::Parse(COptionsList *options, CCommandLine *cmd, _TCHAR *argv[], int argc)
+bool CDefaultParser::Parse(COptionsList* options, CCommandLine* cmd, cli_char* argv[], int argc)
 {
     vector_string_t args;
-    args.resize(argc - 1, _T(""));
+    args.resize((size_t)(argc - 1), _U(""));
 
     for (int i = 1; i < argc; ++i) // i=1: bypass program name (argv[0])
     {
@@ -269,19 +271,19 @@ bool CDefaultParser::Parse(COptionsList *options, CCommandLine *cmd, const vecto
 {
     if (args.size() == 0)
     {
-        m_LastError = _T("Empty list of options in command line");
+        m_LastError = _U("Empty list of options in command line");
         return false;
     }
 
     if (options == nullptr)
     {
-        m_LastError = _T("COptionsList can not be nullptr");
+        m_LastError = _U("COptionsList can not be nullptr");
         return false;
     }
 
     if (cmd == nullptr)
     {
-        m_LastError = _T("CCommandLine can not be nullptr");
+        m_LastError = _U("CCommandLine can not be nullptr");
         return false;
     }
 
