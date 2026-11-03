@@ -8,12 +8,16 @@
 // this is to remove defines min, max in windows headers because they conflict with std::min std::max 
 #define NOMINMAX
 
+#ifdef WIN32
 #include <windows.h>
+#endif
 #include <iostream>
 #include <string>
 #include <sstream>
 #include <vector>
 #include <filesystem>
+#include <format>
+
 
 #if defined(UNICODE) || defined(_UNICODE)
 
@@ -22,7 +26,6 @@ typedef wchar_t char_t;
 typedef std::wstring string_t;
 typedef std::wstringstream stringstream_t;
 typedef std::wostream ostream_t;
-
 #define to_string_t std::to_wstring
 #define cout_t std::wcout
 
@@ -39,12 +42,69 @@ typedef std::ostream ostream_t;
 #endif
 
 
-//void Trim(std::string& str); //Note: str will be changed upon function return
-void TrimAndUpper(std::string& str); //Note: str will be changed upon function return
+void Trim(std::string& str); //Note: str will be changed upon function return
+void TrimAndUpper(string_t& str); //Note: str will be changed upon function return
+
+// extracts filename from path with filename
+std::string ExtractFileName(const std::string& FileName);
+// extracts file dir from path with filename
+std::string ExtractFileDir(const std::string& FileName);
+std::string ExtractFileExt(const std::string& FileName);
+// removed an extension from file name
+std::string StripFileExt(const std::string& FileName);
+
+#ifndef WIN32
+static std::string WideToUTF8(const std::wstring& ws)
+{
+    std::string result;
+
+    // Максимум 4 байта UTF-8 на символ UTF-32
+    result.reserve(ws.size() * 4);
+
+    for (wchar_t wc : ws)
+    {
+        uint32_t cp = static_cast<uint32_t>(wc);
+
+        if (cp <= 0x7F)
+        {
+            result.push_back(static_cast<char>(cp));
+        }
+        else if (cp <= 0x7FF)
+        {
+            result.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+            result.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        }
+        else if (cp <= 0xFFFF)
+        {
+            // Запрещённые UTF-16 surrogate-коды
+            if (cp >= 0xD800 && cp <= 0xDFFF)
+                throw std::runtime_error("Error in WideToUTF8. Invalid Unicode surrogate code point");
+
+            result.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+            result.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            result.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        }
+        else if (cp <= 0x10FFFF)
+        {
+            result.push_back(static_cast<char>(0xF0 | (cp >> 18)));
+            result.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+            result.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            result.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        }
+        else
+        {
+            throw std::runtime_error("Error in WideToUTF8. Invalid Unicode code point");
+        }
+    }
+
+    return result;
+}
+#endif
 
 // special non-template function for wchar_t*
 //template<>
-std::string wtos(const wchar_t* wstr);
+//std::string wtos(const wchar_t* wstr);
+//std::string wtos(const char* wstr);
 
 template<class WSTRING>
 std::string wtos(const WSTRING& wstr)
@@ -62,10 +122,11 @@ std::string wtos(const WSTRING& wstr)
     {
         if (wstr.size() == 0) return "";
 
+#ifdef WIN32
         int len = WideCharToMultiByte(CP_UTF8, 0 /*WC_NO_BEST_FIT_CHARS*/, wstr.data(), (int)wstr.length(), nullptr, 0, nullptr, nullptr);
 
         if (len == 0)
-            throw std::runtime_error(std::format("Error in WideCharToMultiByte 1. Error code: {}", GetLastError()));
+			throw std::runtime_error(std::format("Error in WideCharToMultiByte 1. Error code: {}", GetLastError()));
 
         std::string dest;
         dest.resize(len);
@@ -73,14 +134,14 @@ std::string wtos(const WSTRING& wstr)
 
         if (!err)
             throw std::runtime_error(std::format("Error in WideCharToMultiByte 2. Error code: {}", GetLastError()));
-
+            
         return dest;
+#else
+        return WideToUTF8(wstr);
+#endif
     }
 }
 
-typedef char* pchar_t;
-// special non-template function for char*
-//template<>
 std::wstring stow(const char* str);
 
 template<typename STRING>
@@ -97,6 +158,7 @@ std::wstring stow(const STRING& str)
     }
     else
     {
+#ifdef WIN32
         if (str.size() == 0) return L"";
 
         int bufferSize = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, nullptr, 0); // Get the required buffer size
@@ -112,6 +174,9 @@ std::wstring stow(const STRING& str)
         wstr.resize(bufferSize - 1);
 
         return wstr;
+#else
+        throw std::runtime_error("Implement stow() for Linux");
+#endif
     }
 }
 
@@ -119,7 +184,7 @@ typedef wchar_t* pwchar_t; // needed for proper specialization for wchar_t*
 
 // makes conversion between string and wstring back and forth
 template<typename T>
-constexpr std::basic_string<T> convert_string(const std::filesystem::path& str)
+[[nodiscard]] std::basic_string<T> convert_string(const std::filesystem::path& str)
 {
     static_assert(std::is_same_v<T, char> || std::is_same_v<T, wchar_t>);
 
@@ -127,7 +192,7 @@ constexpr std::basic_string<T> convert_string(const std::filesystem::path& str)
     {
         return str.string();
     }
-    else if (std::is_same_v<T, wchar_t>)
+    else if constexpr (std::is_same_v<T, wchar_t>)
     {
         return str.wstring();
     }
@@ -137,8 +202,8 @@ constexpr std::basic_string<T> convert_string(const std::filesystem::path& str)
     else if (std::is_same_v<T, char32_t>) {
         return str.u32string();
     } */
-
 }
+
 
 template<class STRING>
 STRING MillisecToStr(uint64_t ms)
