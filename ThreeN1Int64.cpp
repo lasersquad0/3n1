@@ -27,7 +27,7 @@ void ThreeN1Int64::Calc3p1(const uint64_t& number, std::vector<uint64_t>& chain,
 			if (curr >= overflow)
 				throw std::overflow_error("Overflow detected!");
 
-			curr = (3ull * curr + 1ull);
+			curr = 3ull * curr + 1ull;
 			chain.push_back(curr);
 			if (maxNum < curr) maxNum = curr;
 
@@ -41,10 +41,10 @@ void ThreeN1Int64::Calc3p1(const uint64_t& number, std::vector<uint64_t>& chain,
 	}
 }
 
-// calculates ONE number WITHOUT using cache
-// returns number of steps and max number reached in the chain
-void ThreeN1Int64::Calc3p1(const uint64_t& number, CalcDataType64& calcResult)
+
+ThreeN1Int64::CalcDataType64 ThreeN1Int64::Calc3p1(const uint64_t& number)
 {
+	CalcDataType64 calcResult;
 	calcResult.maxvalue = number;
 	calcResult.steps = 0ull;
 	uint64_t curr = number;
@@ -66,20 +66,21 @@ void ThreeN1Int64::Calc3p1(const uint64_t& number, CalcDataType64& calcResult)
 			if (curr >= overflow)
 				throw std::overflow_error("Overflow detected!");
 
-			curr = (3ull * curr + 1ull);
+			curr = curr * 3ull + 1ull;
 			if (calcResult.maxvalue < curr) calcResult.maxvalue = curr;
 
 			int tz = std::countr_zero(curr);
 			curr >>= tz;
-			calcResult.steps += (uint16_t)tz; // if curr is odd we do 2 operations at once and increase steps twice accordingly
+			calcResult.steps += (uint16_t)tz;
 		}
 
 		calcResult.steps++;
 
 		if (curr < bitsCount) unused.setTrue(curr);
 	}
-}
 
+	return calcResult;
+}
 
 // calculates ONE number WITH using cache
 // DOES NOT add items to the cache. Assumes that cache is full and loaded from a file.
@@ -88,10 +89,14 @@ void ThreeN1Int64::Calc3p1Cache(const uint64_t& number, CalcDataType64& calcResu
 	uint64_t curr = number;
 	uint64_t mxval = number;
 	uint16_t steps = 0;
+	//auto cacheStart = m_cacheStart;
+	//auto cacheFinish = m_cacheFinish;
 
 	auto& unused = m_unused;
 	const auto bitsCount = unused.BitsCount();
 	if (curr < bitsCount) unused.setTrue(curr);
+	
+	auto overflow = OVERFLOW_LIMIT;
 
 	while (curr != 1)
 	{
@@ -101,7 +106,7 @@ void ThreeN1Int64::Calc3p1Cache(const uint64_t& number, CalcDataType64& calcResu
 		}
 		else
 		{
-			if (curr >= OVERFLOW_LIMIT)
+			if (curr >= overflow)
 				throw std::overflow_error("Overflow detected!");
 
 			curr = 3 * curr + 1;
@@ -249,6 +254,8 @@ void ThreeN1Int64::Calc3p1Range(const uint64_t& start, const uint64_t& finish)
 	progressStr.reserve(200);
 	
 	std::cout << std::endl;
+	
+	auto beg = rdtsc();
 
 	for (uint64_t i = start; i < finish; i++)
 	{
@@ -259,7 +266,7 @@ void ThreeN1Int64::Calc3p1Range(const uint64_t& start, const uint64_t& finish)
 			speed = PRINT_VALUE * 1000 / std::chrono::duration_cast<std::chrono::milliseconds>(speedStop - speedStart).count();
 			avgsteps = stat.sumsteps / (i - start);
 			progressStr.clear();
-			std::format_to(std::back_inserter(progressStr), ThreeN1::Locale, "{:L} | {}% | Speed: {:L} nums/sec | Average Steps: {:L}", 
+			std::format_to(std::back_inserter(progressStr), ThreeN1::GetLoc(), "{:L} | {}% | Speed: {:L} nums/sec | Average Steps: {:L}",
 				i + 1, (i - start) * 100 / range, speed, avgsteps);
 			if (maxProgressLen < progressStr.size()) maxProgressLen = progressStr.size();
 			//progressStr.append(maxProgressLen - progressStr.size(), ' ');
@@ -267,7 +274,7 @@ void ThreeN1Int64::Calc3p1Range(const uint64_t& start, const uint64_t& finish)
 			speedStart = std::chrono::high_resolution_clock::now();
 		}
 
-		Calc3p1(i, calcData);
+		calcData = Calc3p1(i);
 
 		stat.sumsteps += calcData.steps;
 
@@ -275,22 +282,26 @@ void ThreeN1Int64::Calc3p1Range(const uint64_t& start, const uint64_t& finish)
 		{
 			stat.num2 = i;
 			stat.num2maxvalue = calcData.maxvalue;
-			maxvalueStr = std::format(ThreeN1::Locale, "{:L}", calcData.maxvalue);
+			maxvalueStr = std::format(ThreeN1::GetLoc(), "{:L}", calcData.maxvalue);
 			if (maxvalueStr.size() > maxValWidth) maxValWidth = (uint32_t)maxvalueStr.size();
-			std::cout << std::format(ThreeN1::Locale, "{:>5} Number: {:>{}L} | steps:     {:>5L} | MAX VALUE: {:>{}}", 
-				std::format(ThreeN1::Locale, "[{:L}]", lineCnt++), i, fieldWidth, calcData.steps, maxvalueStr, maxValWidth) << std::endl;
+			std::cout << std::format(ThreeN1::GetLoc(), "{:>5} Number: {:>{}L} | steps:     {:>5L} | MAX VALUE: {:>{}}",
+				std::format(ThreeN1::GetLoc(), "[{:L}]", lineCnt++), i, fieldWidth, calcData.steps, maxvalueStr, maxValWidth) << std::endl;
 		}
 
 		if (stat.num1steps < calcData.steps)
 		{
 			stat.num1 = i;
 			stat.num1steps = calcData.steps;
-			std::cout << std::format(ThreeN1::Locale, "{:>5} Number: {:>{}L} | MAX STEPS: {:>5L} | value:     {:>{}L}", 
-				std::format(ThreeN1::Locale, "[{:L}]", lineCnt++), i, fieldWidth, calcData.steps, calcData.maxvalue, maxValWidth) << std::endl;
+			std::cout << std::format(ThreeN1::GetLoc(), "{:>5} Number: {:>{}L} | MAX STEPS: {:>5L} | value:     {:>{}L}",
+				std::format(ThreeN1::GetLoc(), "[{:L}]", lineCnt++), i, fieldWidth, calcData.steps, calcData.maxvalue, maxValWidth) << std::endl;
 		}
 	}
 
 	std::cout << std::string(maxProgressLen, ' ') << "\r" << std::endl; // clear progress counter
+
+	auto end = rdtsc();
+	double CPE = (end - beg) / (double)range;
+	std::cout << "CPE : " << CPE << std::endl;
 
 	stat.calctime = Ticks::Finish("calctime");
 	stat.numcount = range;
@@ -391,7 +402,7 @@ ThreeN1Int64::StatDataType ThreeN1Int64::Calc3p1RangeCacheUpdate(const uint64_t&
 			speed = PRINT_VALUE * 1000 / std::chrono::duration_cast<std::chrono::milliseconds>(speedStop - speedStart).count();
 			avgsteps = stat.sumsteps / (i - start);
 			progressStr.clear();
-			std::format_to(std::back_inserter(progressStr), ThreeN1::Locale, "{:L} | {}% | Speed: {:L} nums/sec | Average Steps: {:L} | Hits: {}%   ", 
+			std::format_to(std::back_inserter(progressStr), ThreeN1::GetLoc(), "{:L} | {}% | Speed: {:L} nums/sec | Average Steps: {:L} | Hits: {}%   ",
 				i + 1, (i - start) * 100 / range, speed, avgsteps, (100 * m_hits) / (i - start));
 			if (maxProgressLen < progressStr.size()) maxProgressLen = progressStr.size();
 			//progressStr.append(maxProgressLen - progressStr.size(), ' ');
@@ -407,9 +418,9 @@ ThreeN1Int64::StatDataType ThreeN1Int64::Calc3p1RangeCacheUpdate(const uint64_t&
 		{
 			stat.num2 = i;
 			stat.num2maxvalue = calcData.maxvalue;
-			maxvalueStr = std::format(ThreeN1::Locale, "{:L}", calcData.maxvalue);
+			maxvalueStr = std::format(ThreeN1::GetLoc(), "{:L}", calcData.maxvalue);
 			if (maxvalueStr.size() > MaxValWidth) MaxValWidth = (uint32_t)maxvalueStr.size();
-			std::cout << std::format(ThreeN1::Locale, "{:>5} Number: {:>{}L} | steps:     {:>5L} | MAX VALUE: {:>{}}", std::format(ThreeN1::Locale, "[{:L}]", lineCnt++),
+			std::cout << std::format(ThreeN1::GetLoc(), "{:>5} Number: {:>{}L} | steps:     {:>5L} | MAX VALUE: {:>{}}", std::format(ThreeN1::GetLoc(), "[{:L}]", lineCnt++),
 				i, fieldWidth, calcData.steps, maxvalueStr, MaxValWidth) << std::endl;
 		}
 
@@ -417,7 +428,7 @@ ThreeN1Int64::StatDataType ThreeN1Int64::Calc3p1RangeCacheUpdate(const uint64_t&
 		{
 			stat.num1 = i;
 			stat.num1steps = calcData.steps;
-			std::cout << std::format(ThreeN1::Locale, "{:>5} Number: {:>{}L} | MAX STEPS: {:>5L} | value:     {:>{}L}", std::format(ThreeN1::Locale, "[{:L}]", lineCnt++),
+			std::cout << std::format(ThreeN1::GetLoc(), "{:>5} Number: {:>{}L} | MAX STEPS: {:>5L} | value:     {:>{}L}", std::format(ThreeN1::GetLoc(), "[{:L}]", lineCnt++),
 				i, fieldWidth, calcData.steps, calcData.maxvalue, MaxValWidth) << std::endl;
 		}
 	}
@@ -429,11 +440,11 @@ ThreeN1Int64::StatDataType ThreeN1Int64::Calc3p1RangeCacheUpdate(const uint64_t&
 
 	printCalcResults(stat);
 
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {} - {}", "Cache Range", F_WIDTH, ReduceNumber(m_cacheStart), ReduceNumber(m_cacheFinish)) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {} ", "Cache Size", F_WIDTH, ReduceNumber(cacheRange)) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} ({:.2f}%)", "Cache Hits", F_WIDTH, m_hits, (double)(100 * m_hits) / range) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {} - {}", "Cache Range", F_WIDTH, ReduceNumber(m_cacheStart), ReduceNumber(m_cacheFinish)) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {} ", "Cache Size", F_WIDTH, ReduceNumber(cacheRange)) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L} ({:.2f}%)", "Cache Hits", F_WIDTH, m_hits, (double)(100 * m_hits) / range) << std::endl;
 
-	//std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "MAXULONGLONG", F_WIDTH, std::numeric_limits<uint64_t>::max()/* ULLONG_MAX*/) << std::endl;
+	//std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L}", "MAXULONGLONG", F_WIDTH, std::numeric_limits<uint64_t>::max()/* ULLONG_MAX*/) << std::endl;
 
 	return stat;
 }
@@ -472,6 +483,8 @@ void ThreeN1Int64::Calc3p1RangeCache(const uint64_t& start, const uint64_t& fini
 	
 	std::cout << std::endl;
 
+	auto beg = rdtsc();
+
 	for (uint64_t i = start; i <= finish; i++)
 	{
 		if (--printCounter == 0)
@@ -481,7 +494,7 @@ void ThreeN1Int64::Calc3p1RangeCache(const uint64_t& start, const uint64_t& fini
 			speed = PRINT_VALUE * 1000 / std::chrono::duration_cast<std::chrono::milliseconds>(speedStop - speedStart).count();
 			avgsteps = stat.sumsteps / (i - start);
 			progressStr.clear();
-			std::format_to(std::back_inserter(progressStr), ThreeN1::Locale, "{:L} | {}% | Speed: {:L} nums/sec | Average Steps: {:L} | Hits: {}%   ", 
+			std::format_to(std::back_inserter(progressStr), ThreeN1::GetLoc(), "{:L} | {}% | Speed: {:L} nums/sec | Average Steps: {:L} | Hits: {}%   ",
 				i + 1, (i - start) * 100 / range, speed, avgsteps, (100 * m_hits) / (i - start));
 			if (maxProgressLen < progressStr.size()) maxProgressLen = progressStr.size();
 			//progressStr.append(maxProgressLen - progressStr.size(), ' ');
@@ -497,22 +510,26 @@ void ThreeN1Int64::Calc3p1RangeCache(const uint64_t& start, const uint64_t& fini
 		{
 			stat.num2 = i;
 			stat.num2maxvalue = calcData.maxvalue;
-			maxvalueStr = std::format(ThreeN1::Locale, "{:L}", calcData.maxvalue);
+			maxvalueStr = std::format(ThreeN1::GetLoc(), "{:L}", calcData.maxvalue);
 			if (maxvalueStr.size() > MaxValWidth) MaxValWidth = (uint32_t)maxvalueStr.size();
-			std::cout << std::format(ThreeN1::Locale, "{:>5} Number: {:>{}L} | steps:     {:>5L} | MAX VALUE: {:>{}}", 
-				std::format(ThreeN1::Locale, "[{:L}]", lineCnt++), i, fieldWidth, calcData.steps, maxvalueStr, MaxValWidth) << std::endl;
+			std::cout << std::format(ThreeN1::GetLoc(), "{:>5} Number: {:>{}L} | steps:     {:>5L} | MAX VALUE: {:>{}}",
+				std::format(ThreeN1::GetLoc(), "[{:L}]", lineCnt++), i, fieldWidth, calcData.steps, maxvalueStr, MaxValWidth) << std::endl;
 		}
 
 		if (stat.num1steps < calcData.steps)
 		{
 			stat.num1 = i;
 			stat.num1steps = calcData.steps;
-			std::cout << std::format(ThreeN1::Locale, "{:>5} Number: {:>{}L} | MAX STEPS: {:>5L} | value:     {:>{}L}", 
-				std::format(ThreeN1::Locale, "[{:L}]", lineCnt++), i, fieldWidth, calcData.steps, calcData.maxvalue, MaxValWidth) << std::endl;
+			std::cout << std::format(ThreeN1::GetLoc(), "{:>5} Number: {:>{}L} | MAX STEPS: {:>5L} | value:     {:>{}L}",
+				std::format(ThreeN1::GetLoc(), "[{:L}]", lineCnt++), i, fieldWidth, calcData.steps, calcData.maxvalue, MaxValWidth) << std::endl;
 		}
 	}
 
 	std::cout << std::string(maxProgressLen, ' ') << "\r" << std::endl; // clear progress counter
+
+	auto end = rdtsc();
+	double CPE = (end - beg) / (double)range;
+	std::cout << "CPE : " << CPE << std::endl;
 
 	stat.calctime = Ticks::Finish("calctime");
 	stat.numcount = range;
@@ -520,10 +537,10 @@ void ThreeN1Int64::Calc3p1RangeCache(const uint64_t& start, const uint64_t& fini
 	printCalcResults(stat);
 
 	auto cacheRange = m_cacheFinish - m_cacheStart;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {} - {}", "Cache Range", F_WIDTH, ReduceNumber(m_cacheStart), ReduceNumber(m_cacheFinish)) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {} ", "Cache Size", F_WIDTH, ReduceNumber(cacheRange)) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L} ({:.2f}%)", "Cache Hits", F_WIDTH, m_hits, (double)(100 * m_hits) / range) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {} - {}", "Cache Range", F_WIDTH, ReduceNumber(m_cacheStart), ReduceNumber(m_cacheFinish)) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {} ", "Cache Size", F_WIDTH, ReduceNumber(cacheRange)) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L} ({:.2f}%)", "Cache Hits", F_WIDTH, m_hits, (double)(100 * m_hits) / range) << std::endl;
 
-	//std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "MAXULONGLONG", F_WIDTH, std::numeric_limits<uint64_t>::max()/* ULLONG_MAX*/) << std::endl;
+	//std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L}", "MAXULONGLONG", F_WIDTH, std::numeric_limits<uint64_t>::max()/* ULLONG_MAX*/) << std::endl;
 }
 
