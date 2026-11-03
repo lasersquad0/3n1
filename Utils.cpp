@@ -70,13 +70,13 @@ std::string ReduceNumber(uint64_t value, bool thouSep)
     {
         if (value % powers[group] == 0)
             if (thouSep)
-                return std::format(ThreeN1::Locale, "{:L}{}", value / powers[group], suffixes[group]);
+                return std::format(ThreeN1::GetLoc(), "{:L}{}", value / powers[group], suffixes[group]);
             else
                 return std::to_string(value / powers[group]) + suffixes[group];
     }
 
     // no group of zeros that is a multiple of 3.
-    return thouSep ? std::format(ThreeN1::Locale, "{:L}", value) : std::to_string(value);
+    return thouSep ? std::format(ThreeN1::GetLoc(), "{:L}", value) : std::to_string(value);
 }
 
 
