@@ -46,10 +46,10 @@ public:
     BigInt(const BigInt& a);
     
     const std::string& GetDigits() const { return digits; };
-    void SetDigits(std::string& dig) { digits = dig; }; // sets digits in internal format
+    //void SetDigits(std::string& dig) { assert(dig.size() > 0); digits = dig; }; // sets digits in internal format
 
-    bool IsEven() { if (digits.length() == 0) return true;  else return (digits[0] & 1) == 0; };
-    bool IsOdd()  { if (digits.length() == 0) return false; else return (digits[0] & 1) == 1; };
+    bool IsEven() { assert(digits.length() > 0); /*if (digits.length() == 0) return true;  else*/ return (digits[0] & 1) == 0; };
+    bool IsOdd()  { assert(digits.length() > 0); /*if (digits.length() == 0) return false; else*/ return (digits[0] & 1) == 1; };
 
     void RemoveLeadingZeros()
     {
