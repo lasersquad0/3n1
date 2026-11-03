@@ -1,5 +1,11 @@
 #pragma once
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#include <windows.h>
+
 #include <string>
 #include <fstream>
 #include <cassert>
@@ -7,12 +13,14 @@
 class IBuferedFileStream
 {
 public:
+    virtual ~IBuferedFileStream() = default;
     virtual void Open(const std::string& filename) = 0;
     virtual void Close() = 0;
     virtual bool IsOpen() = 0;
     virtual bool Eof() = 0;
     virtual bool ReadByte(uint8_t& data) = 0; // true if byte has read successfully
     virtual uint64_t Read(uint8_t* buffer, uint64_t count) = 0; // returns number of bytes actually read, can be less than count parameter
+    virtual uint64_t Pos() = 0;
 };
 
 // load file data into memory by big chunks increase io operations that way.
@@ -34,7 +42,7 @@ private:
     // returns false if it was not able to make count bytes available in the buffer (but less than count bytes may still be available in buffer for further reading)
     bool fetchmore(uint64_t count)
     {
-        if (count > uint64_t(m_pend - m_pnext)) // whether buffered count bytes are available in the buffer
+        if (count > uint64_t(m_pend - m_pnext)) // whether count bytes are available in the buffer
         {
             assert(count <= BUFFER_SIZE);
             if (m_filestream->eof())
@@ -144,6 +152,11 @@ public:
         return m_eof;
     }
 
+    uint64_t Pos() override
+    {
+        return m_filestream->tellg();
+    }
+
     bool ReadByte(uint8_t& data) override
     {
         if (m_eof) return false; // no more bytes available
@@ -179,42 +192,62 @@ public:
 #define LO(_) ((_) & 0xFFFFFFFF)
 
 // Uses Windows mapped files to read file data.
-/*class MappedFileStream : public IBuferedFileStream
+class MappedFileStream : public IBuferedFileStream
 {
 private:
-    static const size_t BUFFER_SIZE = 1 << 27; //needs to be rounded to 64K, that is why we use power of two. 134'217'728 bytes
-    HANDLE m_hFile = nullptr;       // the file handle
-    HANDLE m_hMapFile = nullptr;    // handle for the file's memory-mapped region
-    uint64_t m_dwFileSize = 0;      // size of the file
-    uint64_t m_dwMapViewSize = 0;   // the size of the view
-    uint64_t m_dwFileMapStart = 0;  // where to start the file map view
+    static const size_t BUFFER_SIZE = 1 << 27;
+    // 134'217'728 байт.
+
+    HANDLE m_hFile = nullptr;
+    HANDLE m_hMapFile = nullptr;
+
+    uint64_t m_dwFileSize = 0;
+
+    // Полный размер текущего mapped view,
+    // включая m_dwViewDelta.
+    uint64_t m_dwMapViewSize = 0;
+
+    // Выровненное начало текущего mapped view в файле.
+    uint64_t m_dwFileMapStart = 0;
+
+    // Смещение полезной части относительно m_lpMapAddress.
     uint64_t m_dwViewDelta = 0;
-    uint64_t m_dwSysGran = 0;          // system allocation granularity
-    uint8_t* m_lpMapAddress = nullptr; // pointer to the base address of the
-    uint64_t m_bufsize;
+
+    // Allocation granularity, полученная через GetSystemInfo().
+    uint64_t m_dwSysGran = 0;
+
+    // Адрес, который непосредственно вернул MapViewOfFile().
+    uint8_t* m_lpMapAddress = nullptr;
+
+    uint64_t m_bufsize = 0;
+
+    // Начало, текущая позиция и конец полезной части view.
     uint8_t* m_pbegin = nullptr;
     uint8_t* m_pcurr = nullptr;
     uint8_t* m_pend = nullptr;
-    //bool m_ownstream;
 
+    // Абсолютная позиция следующего байта в файле.
+    uint64_t m_position = 0;
+
+private:
     void fetchmore();
+    void unmapCurrentView() noexcept;
+
+    MappedFileStream(const MappedFileStream&) = delete;
+    MappedFileStream& operator=(const MappedFileStream&) = delete;
 
 public:
-    MappedFileStream(const uint64_t bufferSize = BUFFER_SIZE);
+    explicit MappedFileStream(const uint64_t bufferSize = BUFFER_SIZE);
+
     MappedFileStream(const std::string& filename, const uint64_t bufferSize = BUFFER_SIZE);
-    ~MappedFileStream();
+
+    ~MappedFileStream() override;
 
     bool IsOpen() override;
-   
     void Open(const std::string& filename) override;
-    
     void Close() override;
-
     bool Eof() override;
-
     bool ReadByte(uint8_t& data) override;
 
-    uint64_t Read(uint8_t* buffer, uint64_t count) override; //TODO this method DOES NOT work properly when count > BUFFER_SIZE 
-
+    uint64_t Read(uint8_t* buffer, uint64_t count) override;
 };
-*/
