@@ -82,7 +82,7 @@ public:
 		m_sumsteps = 0;
 
 		std::osyncstream syncout(std::cout);
-		syncout.imbue(ThreeN1::Locale);
+		syncout.imbue(ThreeN1::GetLoc());
 		uint32_t maxValWidth = MAX_VALUE_WIDTH;
 		IntImpl i{};
 
@@ -101,7 +101,7 @@ public:
 			else
 				for (i = m_start; i < m_end; i++)
 				{
-					m_parent.Calc3p1(i, calcData);
+					calcData = m_parent.Calc3p1(i);
 
 					if (m_maxvalue < calcData.maxvalue) m_maxvalue = calcData.maxvalue, m_mvnum = i;
 					if (m_maxsteps < calcData.steps)    m_maxsteps = calcData.steps, m_msnum = i;
@@ -113,24 +113,24 @@ public:
 		{
 			//status = TaskStatus::error;
 			m_parent.AddRangeData(getRangeData(TaskStatus::error, i));
-			syncout << std::format(ThreeN1::Locale, "{:>4} | Range: {}-{} | Current num: {:L}. {}",
-				std::format(ThreeN1::Locale, "#{:L}", id), ReduceNumber(m_start), ReduceNumber(m_end), i, ex.what()) << std::endl;
+			syncout << std::format(ThreeN1::GetLoc(), "{:>4} | Range: {}-{} | Current num: {:L}. {}",
+				std::format(ThreeN1::GetLoc(), "#{:L}", id), ReduceNumber(m_start), ReduceNumber(m_end), i, ex.what()) << std::endl;
 			throw; // ThreadPool::run() will catch this exception and set status to error state
 		}
 		catch (...) // any exception means tasks is not finished - error
 		{
 			//status = TaskStatus::error;
 			m_parent.AddRangeData(getRangeData(TaskStatus::error, i));
-			syncout << std::format(ThreeN1::Locale, "{:>4} | Range: {}-{} | Current num: {:L}. UNKNOWN Error during range calculation!",
-				std::format(ThreeN1::Locale, "#{:L}", id), ReduceNumber(m_start), ReduceNumber(m_end), i) << std::endl;
+			syncout << std::format(ThreeN1::GetLoc(), "{:>4} | Range: {}-{} | Current num: {:L}. UNKNOWN Error during range calculation!",
+				std::format(ThreeN1::GetLoc(), "#{:L}", id), ReduceNumber(m_start), ReduceNumber(m_end), i) << std::endl;
 			throw; // ThreadPool::run() will catch this exception and set status to error state
 		}
 
 		m_parent.AddRangeData(getRangeData());
 
-		std::string strID = std::format(ThreeN1::Locale, "#{:L}", id);
-		std::string maxvalueStr = std::format(ThreeN1::Locale, "{:L}", m_maxvalue);
-		syncout << std::format(ThreeN1::Locale, "{:>4} | Range: {}-{} | Max Steps:{:>5L} ({:L}) | Max Value: {:>{}} ({:L})",
+		std::string strID = std::format(ThreeN1::GetLoc(), "#{:L}", id);
+		std::string maxvalueStr = std::format(ThreeN1::GetLoc(), "{:L}", m_maxvalue);
+		syncout << std::format(ThreeN1::GetLoc(), "{:>4} | Range: {}-{} | Max Steps:{:>5L} ({:L}) | Max Value: {:>{}} ({:L})",
 			strID, ReduceNumber(m_start), ReduceNumber(m_end), m_maxsteps, m_msnum, maxvalueStr, maxValWidth, m_mvnum) << std::endl;
 
 	}
