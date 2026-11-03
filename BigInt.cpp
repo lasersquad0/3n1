@@ -19,7 +19,7 @@ int Length(const BigInt& a)
     
 uint64_t toUInt64(const BigInt& v)
 {
-    constexpr uint64_t max64 = std::numeric_limits<uint64_t>::max();
+    static constexpr uint64_t max64 = std::numeric_limits<uint64_t>::max();
     assert(v.digits.size() > 0);
     assert(v.digits.size() < 21); // 21 decimal digits surely do not fit into uint64_t
     
@@ -37,7 +37,6 @@ uint64_t toUInt64(const BigInt& v)
     return res;
 }
 
-
 // constants for quick compare with common values
 const BigInt BigInt::ZERO(0ull);
 const BigInt BigInt::ONE(1);
@@ -47,6 +46,7 @@ const BigInt BigInt::TEN(10);
 
 BigInt::BigInt(const std::string& s)
 {
+    assert(digits.size() == 0);
     digits = "";
     int n = (int)s.size();
     for (int i = n - 1; i >= 0; i--)
@@ -68,8 +68,10 @@ BigInt::BigInt(unsigned long long nr)
 
 BigInt::BigInt(const char* s)
 {
+    assert(digits.size() == 0);
     digits = "";
-    for (int i = (int)strlen(s) - 1; i >= 0; i--)
+    int n = (int)strlen(s);
+    for (int i = n - 1; i >= 0; i--)
     {
         if (!isdigit(s[i]))
             throw TBigIntException("BigInt ERROR: Passed value is not an integer value");
