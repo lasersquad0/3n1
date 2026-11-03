@@ -1,17 +1,13 @@
 
 #include "debug.h"
-#include <locale>
 #include <string>
 #include <vector>
 #include <numeric>
-#include <unordered_set>
-#include "DynamicArrays.h"
 #include "BigInt.h"
 #include "cli/CommandLine.h"
 #include "cli/DefaultParser.h"
 #include "cli/HelpFormatter.h"
 #include "ThreeN1.h"
-#include "utils/include/string_utils.h"
 #include "utils/include/Ticks.h"
 #include "Utils.h"
 #include "ttmath/ttmath.h"
@@ -20,54 +16,54 @@
 
 static void PrintUsage(COptionsList& options)
 {
-	std::cout << CHelpFormatter::Format(_T(APP_NAME), &options);
+	std::cout << CHelpFormatter::Format(U(APP_EXE_NAME), &options);
 }
 
-#define OPT_R _T("r")
-#define OPT_F _T("f")
-#define OPT_N _T("n")
-#define OPT_C _T("c")
-#define OPT_T _T("t")
-#define OPT_U _T("u")
-#define OPT_L _T("l")
-#define OPT_G _T("g")
-#define OPT_S _T("s")
-#define OPT_H _T("h")
+#define OPT_R U("r")
+#define OPT_F U("f")
+#define OPT_N U("n")
+#define OPT_C U("c")
+#define OPT_T U("t")
+#define OPT_U U("u")
+#define OPT_L U("l")
+#define OPT_G U("g")
+#define OPT_S U("s")
+#define OPT_H U("h")
 
 static void DefineOptions(COptionsList& options)
 {
 	COption rr;
-	rr.ShortName(OPT_R).LongName(_T("range")).Descr(_T("Define calculation range by specifying start and end values of the range")).Required(false).RequiredArgs(2);
+	rr.ShortName(OPT_R).LongName(U("range")).Descr(U("Define calculation range by specifying start and end values of the range")).Required(false).RequiredArgs(2);
 	options.AddOption(rr);
 
 	COption ss;
-	ss.ShortName(OPT_S).LongName("size").Descr(_T("Define the calculation range by specifying start and length of the range")).RequiredArgs(2).Required(false);
+	ss.ShortName(OPT_S).LongName(U("size")).Descr(U("Define the calculation range by specifying start and length of the range")).RequiredArgs(2).Required(false);
 	options.AddOption(ss);
 
 	COption nn;
-	nn.ShortName(OPT_N).LongName(_T("number")).Descr(_T("Calculate one number and show full chain of 3n1 numbers till 1 reached")).Required(false).RequiredArgs(1);
+	nn.ShortName(OPT_N).LongName(U("number")).Descr(U("Calculate one number and show full chain of 3n1 numbers till 1 reached")).Required(false).RequiredArgs(1);
 	options.AddOption(nn);
 
 	COption tt;
-	tt.ShortName(OPT_T).LongName(_T("threads")).Descr(_T("Use specified number of threads for calculations (faster)")).Required(false).NumArgs(1).RequiredArgs(1);
+	tt.ShortName(OPT_T).LongName(U("threads")).Descr(U("Use specified number of threads for calculations (faster)")).Required(false).NumArgs(1).RequiredArgs(1);
 	options.AddOption(tt);
 	
 	COption cc;
-	cc.ShortName(OPT_C).LongName(_T("cache")).Descr(_T("Use cache during calculations (cache is loaded from a file)")).Required(false).NumArgs(0);
+	cc.ShortName(OPT_C).LongName(U("cache")).Descr(U("Use cache during calculations (cache is loaded from a file)")).Required(false).NumArgs(0);
 	options.AddOption(cc);
 
 	COption uu;
-	uu.ShortName(OPT_U).LongName(_T("unused")).Descr(_T("Track unused numbers during calculations. Define range of unusued numbers. Range always starts from 0")).Required(false).NumArgs(1).RequiredArgs(1);
+	uu.ShortName(OPT_U).LongName(U("unused")).Descr(U("Track unused numbers during calculations. Define range of unusued numbers. Range always starts from 0")).Required(false).NumArgs(1).RequiredArgs(1);
 	options.AddOption(uu);
 
 	COption ff;
-	ff.ShortName(OPT_F).LongName(_T("cachefile")).Descr(_T("Specify cache file name. Valid only with options -c and -g. Otherwise ignored")).Required(false).RequiredArgs(1);
+	ff.ShortName(OPT_F).LongName(U("cachefile")).Descr(U("Specify cache file name. Valid only with options -c and -g. Otherwise ignored")).Required(false).RequiredArgs(1);
 	options.AddOption(ff); 
 
-	options.AddOption(OPT_L, "long", _T("Force using long arithmetic. If -l is specified tong arithmetic will be used even for small numbers\nBy default 64bit integer arithmetic is used for numbers less than MAX_UINT64/3"), 0, false);
-	options.AddOption(OPT_G, "gen", _T("Fill cache during calculation and save it into file. Valid only when option -c is specified\nCache range is not equal to the range specified by - r, but based on it."), 0, false);
+	options.AddOption(OPT_L, "long", U("Force using long arithmetic. If -l is specified tong arithmetic will be used even for small numbers\nBy default 64bit integer arithmetic is used for numbers less than MAX_UINT64/3"), 0, false);
+	options.AddOption(OPT_G, "gen", U("Fill cache during calculation and save it into file. Valid only when option -c is specified\nCache range is not equal to the range specified by - r, but based on it."), 0, false);
 	
-	options.AddOption(OPT_H, _T("help"), _T("Show this help"), 0);
+	options.AddOption(OPT_H, U("help"), U("Show this help"), 0);
 	
 	options.MutuallyExclusive(OPT_R, OPT_N, OPT_S); // cannot have any both (or all three) options -r, -f and -n together in one cmd line
 }
@@ -108,7 +104,7 @@ int _tmain(int argc, TCHAR* argv[])
 
 	std::cout << std::endl << "Collatz conjecture solver (3n+1)" << std::endl << std::endl;
 	
-	std::cout.imbue(ThreeN1::Locale);
+	std::cout.imbue(ThreeN1::GetLoc());
 
 	Ticks::Start("totaltime");
 
@@ -126,7 +122,7 @@ int _tmain(int argc, TCHAR* argv[])
 			Parameters::UNUSED_SIZE = ParseNumber<uint64_t>(cmd.GetOptionValue(OPT_U)); // index=0 by default
 			//auto unusedRange = std::min(Parameters::UNUSED_SIZE, toUInt64(finish));
 			//calc.TrackUnused(unusedRange);
-			//std::cout << std::format(ThreeN1::Locale, "{:<{}}: 1..{:L}", "Track unused (range)", F_WIDTH, unusedRange) << std::endl;
+			//std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: 1..{:L}", "Track unused (range)", F_WIDTH, unusedRange) << std::endl;
 		}
 
 		if (cmd.HasOption(OPT_T))
@@ -173,8 +169,8 @@ int _tmain(int argc, TCHAR* argv[])
 			if (finish < BIGINT_THRESHOLD && !cmd.HasOption(OPT_L))
 				ProcessOptionR<ThreeN1Int64>(toUInt64(start), toUInt64(finish));
 			else
-				//ProcessOptionR<ThreeN1BigInt>(start, finish);
-				ProcessOptionR<ThreeN1TTMath>((std::string)start, (std::string)finish);
+				ProcessOptionR<ThreeN1BigInt>(start, finish);
+				//ProcessOptionR<ThreeN1TTMath>((std::string)start, (std::string)finish);
 		}
 		else
 		{
@@ -187,26 +183,31 @@ int _tmain(int argc, TCHAR* argv[])
 	{
 		std::cout << "Error: " << ex.getErrorMessage() << std::endl;
 		std::cout << "Aborting." << std::endl;
+		return 1;
 	}
 	catch (TBigIntException& ex)
 	{
 		std::cout << "Error: " << ex.getErrorMessage() << std::endl;
 		std::cout << "Aborting." << std::endl;
+		return 1;
 	}
 	catch (std::exception& ex)
 	{
 		std::cout << "Error: " << ex.what() << std::endl;
 		std::cout << "Aborting." << std::endl;
+		return 1;
 	}
 	catch (...)
 	{
 		std::cout << "UNKNOWN EXCEPTION" << std::endl;
+		return 1;
 	}
 
 	_CrtMemCheckpoint(&s2); // Take a snapshot at the end of main()
 	_CrtMemCheckpoint(&s2); // Take a snapshot at the end of main()
 	if (_CrtMemDifference(&s3, &s1, &s2)) _CrtMemDumpStatistics(&s3); // Dump memory statistics excluding global variables
 
+	return 0;
 }
 
 
@@ -222,19 +223,19 @@ void ProcessOptionN(typename ThreeN1IntImpl::DataType number)
 	std::vector<IntImpl> chain;
 	calc.Calc3p1(number, chain, steps, maxNumber);
 
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Starting number", F_WIDTH, number) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: ", "Chain of numbers", F_WIDTH);
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L}", "Starting number", F_WIDTH, number) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: ", "Chain of numbers", F_WIDTH);
 
 	//TODO accumulate may be slow for large number of items in vector
-	std::string s = std::accumulate(std::next(chain.begin()), chain.end(), std::format(ThreeN1::Locale, "{:L}", chain.front()),
+	std::string s = std::accumulate(std::next(chain.begin()), chain.end(), std::format(ThreeN1::GetLoc(), "{:L}", chain.front()),
 		[](std::string acc, IntImpl x) {
-			return std::move(acc) + "," + std::format(ThreeN1::Locale, "{:L}", x);
+			return std::move(acc) + "," + std::format(ThreeN1::GetLoc(), "{:L}", x);
 		});
 
 	std::cout << s << std::endl;
 
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Steps", F_WIDTH, steps) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Max number in chain", F_WIDTH, maxNumber) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L}", "Steps", F_WIDTH, steps) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L}", "Max number in chain", F_WIDTH, maxNumber) << std::endl;
 }
 
 template<typename ThreeN1IntImpl>
@@ -253,9 +254,9 @@ void ProcessOptionR(typename ThreeN1IntImpl::DataType start, typename ThreeN1Int
 		finish = tmp;
 	}
 
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {} - {}", "Calculation Range", F_WIDTH, ReduceNumber(start), ReduceNumber(finish)) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {}", "Count of numbers", F_WIDTH, ReduceNumber(finish - start)) << std::endl;
-	std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Threads", F_WIDTH, Parameters::THREADS) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {} - {}", "Calculation Range", F_WIDTH, ReduceNumber(start), ReduceNumber(finish)) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {}", "Count of numbers", F_WIDTH, ReduceNumber(finish - start)) << std::endl;
+	std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L}", "Threads", F_WIDTH, Parameters::THREADS) << std::endl;
 	if constexpr (std::is_same_v<IntImpl, BigInt>)
 		std::cout << std::format("{:<{}}: {} (much slower then 64bit arithmetic, use it only when numbers exceed 64bit max value)", "Use long arithmetic", F_WIDTH, "YES") << std::endl;
 	if constexpr (std::is_same_v<IntImpl, uint64_t>)
@@ -316,10 +317,10 @@ void ProcessOptionR(typename ThreeN1IntImpl::DataType start, typename ThreeN1Int
 				assert(emptyCount == 0);
 				auto filled = calc.m_valuesCache.Count() - emptyCount;
 
-				std::cout << "\r" << std::format(ThreeN1::Locale, "{:<{}}: {}% ({:L})", "Cache fullness", F_WIDTH, filled * 100 / calc.m_valuesCache.Count(), filled) << std::endl;
+				std::cout << "\r" << std::format(ThreeN1::GetLoc(), "{:<{}}: {}% ({:L})", "Cache fullness", F_WIDTH, filled * 100 / calc.m_valuesCache.Count(), filled) << std::endl;
 
 				//auto count = std::count_if(calc.m_valuesCache.begin(), calc.m_valuesCache.end(), [&calc](CacheItemType& v) { return v.maxvalue < calc.m_cacheFinish; });
-				//std::cout << std::format(ThreeN1::Locale, "{:<{}}: {:L}", "Unique nums", F_WIDTH, unique.size()) << std::endl;
+				//std::cout << std::format(ThreeN1::GetLoc(), "{:<{}}: {:L}", "Unique nums", F_WIDTH, unique.size()) << std::endl;
 
 
 				Ticks::Start("save file");
