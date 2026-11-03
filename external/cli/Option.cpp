@@ -54,9 +54,9 @@ const cli_string COption::GetNonEmptyName(bool addDash /* =false*/)
 {
     if (addDash)
         if (m_ShortName.empty())
-            return DDASH + m_LongName;
-        else
-            return DASH + m_ShortName;
+			return cli_string(DDASH) + m_LongName;
+		else
+            return cli_string(DASH) + m_ShortName;
     else
         if (m_ShortName.empty())
             return m_LongName;
