@@ -77,7 +77,7 @@ public:
 	using StatDataType = StatData<DataType>;
 	using CalcDataType = ThreeN1Data<IntImpl>;
 	using CacheItemType = ThreeN1Data<uint64_t>;
-	using CacheType = THArray<CacheItemType>; // cache is always uintt64_t
+	using CacheType = THArray<CacheItemType>; // cache is always uint64_t
 protected:
 	std::mutex m_rangeMutex;
 	MyBitset m_unused; // false in this array means that cpecified number is unused, true - is used.
