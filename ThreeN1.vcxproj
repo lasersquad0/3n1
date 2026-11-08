@@ -153,7 +153,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\common\src\string_utils.cpp" />
     <ClCompile Include="BigInt.cpp" />
     <ClCompile Include="external\cli\CommandLine.cpp" />
     <ClCompile Include="external\cli\DefaultParser.cpp" />
@@ -162,6 +161,7 @@
     <ClCompile Include="external\cli\OptionsList.cpp" />
     <ClCompile Include="external\thread_pool.cpp" />
     <ClCompile Include="external\timer.cpp" />
+    <ClCompile Include="external\utils\src\string_utils.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="ThreeN1.cpp" />
     <ClCompile Include="ThreeN1BigInt.cpp" />
