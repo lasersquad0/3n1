@@ -8,7 +8,7 @@
 #include "utils/include/string_utils.h"
 #include "ttmath/ttmath.h"
 
-
+// can contain max ~192 decimal digits (=64*10*log10(2))
 using TTMathBigInt = ttmath::UInt<10>;
 
 const uint64_t BIGINT_THRESHOLD = std::numeric_limits<uint64_t>::max() / 10;
