@@ -6,7 +6,7 @@
 
 #include "utils/include/string_utils.h"
 #include "utils/include/Ticks.h"
-#include "DynamicArrays.h"
+#include "LogEngine2/DynamicArrays.h"
 #include "thread_pool.h"
 #include "ThreeN1Task.h"
 #include "Utils.h"
