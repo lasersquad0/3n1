@@ -76,7 +76,9 @@ public:
 class Ticks
 {
 public:
-	typedef std::chrono::steady_clock::time_point timepoint;
+	typedef std::chrono::steady_clock clock_t;
+	//typedef std::chrono::high_resolution_clock clock_t;
+	typedef clock_t::time_point timepoint;
 
 private:
 	static inline TTickHash<std::string, timepoint> s;
@@ -86,22 +88,21 @@ public:
 
 	static void Start(const std::string& tickName)
 	{
-		s[tickName] = std::chrono::steady_clock::now();
+		s[tickName] = clock_t::now();
 	}
 	//TODO think of performance of this function because too many times we make search in map by Key
 	static long long Finish(const std::string& tickName)
 	{
 		if (s.IfExists(tickName)) 
-			f[tickName] = std::chrono::steady_clock::now();
+			f[tickName] = clock_t::now();
 		else
-			s[tickName] = f[tickName] = std::chrono::steady_clock::now();
+			s[tickName] = f[tickName] = clock_t::now();
 		return GetTick(tickName);
 	}
 	// generates an exception if s.at(tickName) does not exist in s map.
 	static long long GetTick(const std::string& tickName)
 	{
-		const timepoint& fin = f[tickName];
-		return std::chrono::duration_cast<std::chrono::milliseconds>(fin - s[tickName]).count();
+		return std::chrono::duration_cast<std::chrono::milliseconds>(f[tickName] - s[tickName]).count();
 	}
 	static bool IfExists(const std::string& tickName)
 	{
