@@ -54,9 +54,9 @@ struct LoadPrimesResult
 	size_t LoadFromTXT(uint64_t* arr, size_t len, std::fstream& f);
 	size_t LoadFromTXTDiff(uint64_t* arr, size_t len, uint64_t& lastPrime, std::fstream& f);
 	size_t LoadFromBIN(uint64_t* arr, size_t len, std::fstream& f);
-	size_t LoadFromBINJava(uint64_t* arr, size_t len, std::fstream& f);
 	size_t LoadFromBINDiff(uint64_t* arr, size_t len, uint64_t& lastPrime, std::fstream& f);
 	size_t LoadFromBINDiffVar(uint64_t* arr, size_t len, uint64_t& lastPrime, IBuferedFileStream& bf);
+	size_t LoadFromBINJava(uint64_t* arr, size_t len, std::fstream& f);
 	size_t LoadFromBINDiffVarOLD(uint64_t* arr, size_t len, uint64_t& lastPrime, std::fstream& f);
 
 	void SaveAsTXT(uint64_t* arr, size_t len, std::fstream& f);
