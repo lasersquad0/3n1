@@ -77,7 +77,8 @@ void ProcessOptionR(typename ThreeN1IntImpl::DataType start, typename ThreeN1Int
 //TODO shall we show error message if exception thrown in try..catch?
 #define SetParam(_) try { _; } catch (...) { /* nothing to do, because Parameters::XXXXX remains unchanged in case of exception */ }
 
-int _tmain(int argc, TCHAR* argv[])
+//int _tmain(int argc, TCHAR* argv[])
+int main(int argc, char* argv[])
 {
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 	_CrtMemState s1, s2, s3;
