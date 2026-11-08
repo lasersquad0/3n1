@@ -3,7 +3,6 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-
 #include <windows.h>
 
 #include <string>
@@ -21,6 +20,7 @@ public:
     virtual bool ReadByte(uint8_t& data) = 0; // true if byte has read successfully
     virtual uint64_t Read(uint8_t* buffer, uint64_t count) = 0; // returns number of bytes actually read, can be less than count parameter
     virtual uint64_t Pos() = 0;
+    virtual void ClearBits() = 0; // clears failbit, badbit etc.
 };
 
 // load file data into memory by big chunks increase io operations that way.
@@ -155,6 +155,11 @@ public:
     uint64_t Pos() override
     {
         return m_filestream->tellg();
+    }
+
+    void ClearBits() override
+    {
+        m_filestream->clear();
     }
 
     bool ReadByte(uint8_t& data) override
