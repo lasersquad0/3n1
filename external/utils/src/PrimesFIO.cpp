@@ -27,6 +27,10 @@ namespace PrimesFIO
 			arr[cnt++] = atoll(line.c_str()); //TODO shall we replace atoll by std::stoull or something similar?
 		}
 
+		f.clear(); // when eof() is true then tellg() returns incorrect value because it thinks that stream is in fail state. need to clear this state.
+		assert(f.tellg() != -1);
+		assert(f.tellg() != 0);
+
 		return { cnt, (size_t)(f.tellg() - startPos) };
 	}
 
@@ -53,6 +57,10 @@ namespace PrimesFIO
 			bypassCount--;
 			cnt++;
 		}
+
+		f.clear(); // when eof() is true then tellg() returns incorrect value because it thinks that stream is in fail state. need to clear this state.
+		assert(f.tellg() != -1);
+		assert(f.tellg() != 0);
 
 		return { cnt, (size_t)(f.tellg() - startPos) };
 	}
@@ -88,6 +96,7 @@ namespace PrimesFIO
 		f.clear(); // when eof() is true then tellg() returns incorrect value because it thinks that stream is in fail state. need to clear this state.
 		assert(f.tellg() != -1);
 		assert(f.tellg() != 0);
+
 		return { cnt, (size_t)(f.tellg() - startPos) };
 	}
 
@@ -123,6 +132,10 @@ namespace PrimesFIO
 			cnt++;
 		}
 
+		f.clear(); // when eof() is true then tellg() returns incorrect value because it thinks that stream is in fail state. need to clear this state.
+		assert(f.tellg() != -1);
+		assert(f.tellg() != 0);
+
 		return { cnt, (size_t)(f.tellg() - startPos) };
 	}
 
@@ -152,6 +165,10 @@ namespace PrimesFIO
 
 		auto startPos = f.tellg();
 		f.seekg(bypassCount * sizeof(uint64_t), std::ios::cur);
+
+		f.clear(); // when eof() is true then tellg() returns incorrect value because it thinks that stream is in fail state. need to clear this state.
+		assert(f.tellg() != -1);
+		assert(f.tellg() != 0);
 
 		return { (f.tellg() - startPos) / sizeof(uint64_t), (size_t)(f.tellg() - startPos) };
 	}
@@ -203,6 +220,10 @@ namespace PrimesFIO
 			lastPrime = arr[cnt++];
 		}
 
+		f.clear(); // when eof() is true then tellg() returns incorrect value because it thinks that stream is in fail state. need to clear this state.
+		assert(f.tellg() != -1);
+		assert(f.tellg() != 0);
+
 		return { cnt, (size_t)(f.tellg() - startPos) };
 	}
 
@@ -242,6 +263,10 @@ namespace PrimesFIO
 			cnt++;
 		}
 
+		f.clear(); // when eof() is true then tellg() returns incorrect value because it thinks that stream is in fail state. need to clear this state.
+		assert(f.tellg() != -1);
+		assert(f.tellg() != 0);
+
 		return { cnt, (size_t)(f.tellg() - startPos) };
 	}
 
@@ -274,8 +299,9 @@ namespace PrimesFIO
 
 			if (bf.Eof()) break;
 
-			size_t res = var_len_decode(buf, maxSize, &diff);
-			std::ignore = res;
+			[[maybe_unused]] size_t res = var_len_decode(buf, maxSize, &diff);
+			assert(res == maxSize);
+			//std::ignore = res;
 
 			if (lastPrime > 0)
 			{
@@ -289,6 +315,10 @@ namespace PrimesFIO
 			arr[cnt] = diff + lastPrime;
 			lastPrime = arr[cnt++];
 		}
+
+		bf.ClearBits(); // when eof() is true then tellg() returns incorrect value because it thinks that stream is in fail state. need to clear this state.
+		assert(bf.Pos() != -1);
+		assert(bf.Pos() != 0);
 
 		return { cnt, (size_t)(bf.Pos() - startPos) };
 	}
@@ -341,6 +371,10 @@ namespace PrimesFIO
 
 			if (--bypassCount == 0) break;
 		}
+
+		bf.ClearBits(); // when eof() is true then tellg() returns incorrect value because it thinks that stream is in fail state. need to clear this state.
+		assert(bf.Pos() != -1);
+		assert(bf.Pos() != 0);
 
 		return { cnt, (size_t)(bf.Pos() - startPos) };
 	}
